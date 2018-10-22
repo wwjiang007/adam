@@ -19,7 +19,7 @@ package org.bdgenomics.adam.rdd.read
 
 import java.io.File
 import java.nio.file.Files
-import htsjdk.samtools.ValidationStringency
+import htsjdk.samtools.{ SAMFileHeader, ValidationStringency }
 import org.apache.spark.api.java.function.Function2
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{ Dataset, SQLContext }
@@ -382,6 +382,14 @@ class AlignmentRecordRDDSuite extends ADAMFunSuite {
     sam.rdd.collect().foreach(r => assert(r.getReadMapped))
   }
 
+  sparkTest("load FASTQ with no bases") {
+    val readsPath = testFile("fastq_nobases.fq")
+    val reads = sc.loadAlignments(readsPath)
+
+    assert(reads.dataset.count === 2)
+    assert(reads.rdd.map(_.getSequence.length).reduce(_ + _) === 0)
+  }
+
   sparkTest("convert malformed FASTQ (no quality scores) => SAM => well-formed FASTQ => SAM") {
     val noqualPath = Thread.currentThread().getContextClassLoader.getResource("fastq_noqual.fq").getFile
     val tempBase = Files.createTempDirectory("noqual").toAbsolutePath.toString
@@ -606,7 +614,7 @@ class AlignmentRecordRDDSuite extends ADAMFunSuite {
   sparkTest("load parquet to sql, save, re-read from avro") {
     def testMetadata(arRdd: AlignmentRecordRDD) {
       val sequenceRdd = arRdd.addSequence(SequenceRecord("aSequence", 1000L))
-      assert(sequenceRdd.sequences.containsRefName("aSequence"))
+      assert(sequenceRdd.sequences.containsReferenceName("aSequence"))
 
       val rgRdd = arRdd.addRecordGroup(RecordGroup("test", "aRg"))
       assert(rgRdd.recordGroups("aRg").sample === "test")
@@ -642,7 +650,7 @@ class AlignmentRecordRDDSuite extends ADAMFunSuite {
   sparkTest("load from sam, save as partitioned parquet, and re-read from partitioned parquet") {
     def testMetadata(arRdd: AlignmentRecordRDD) {
       val sequenceRdd = arRdd.addSequence(SequenceRecord("aSequence", 1000L))
-      assert(sequenceRdd.sequences.containsRefName("aSequence"))
+      assert(sequenceRdd.sequences.containsReferenceName("aSequence"))
 
       val rgRdd = arRdd.addRecordGroup(RecordGroup("test", "aRg"))
       assert(rgRdd.recordGroups("aRg").sample === "test")
@@ -1766,5 +1774,22 @@ class AlignmentRecordRDDSuite extends ADAMFunSuite {
     val alignmentsDs = alignments.transformDataset(ds => ds)
     assert(alignmentsDs.filterToSamples(Seq("NA12878", "not a sample")).dataset.count() === 565)
     assert(alignmentsDs.filterToSamples(Seq("not a sample")).dataset.count() === 0)
+  }
+
+  sparkTest("sort by read name") {
+    val unsortedPath = testFile("unsorted.sam")
+    val ardd = sc.loadBam(unsortedPath)
+    val reads = ardd.rdd
+
+    val actualSortedPath = tmpFile("readname_sorted.sam")
+    ardd.sortReadsByReadName()
+      .saveAsSam(actualSortedPath,
+        asType = None,
+        asSingleFile = true,
+        sortOrder = SAMFileHeader.SortOrder.queryname,
+        deferMerging = false,
+        disableFastConcat = false)
+
+    checkFiles(testFile("readname_sorted.sam"), actualSortedPath)
   }
 }
