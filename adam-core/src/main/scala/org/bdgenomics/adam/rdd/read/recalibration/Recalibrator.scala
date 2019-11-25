@@ -20,7 +20,7 @@ package org.bdgenomics.adam.rdd.read.recalibration
 import java.lang.StringBuilder
 import org.bdgenomics.adam.instrumentation.Timers._
 import org.bdgenomics.adam.util.PhredUtils
-import org.bdgenomics.formats.avro.AlignmentRecord
+import org.bdgenomics.formats.avro.Alignment
 
 /**
  * The engine that recalibrates a read given a table of recalibrated qualities.
@@ -42,13 +42,13 @@ private[recalibration] case class Recalibrator(
    * @return Returns a recalibrated read if the read has defined qualities and
    * if the covariates for this read were observed.
    */
-  def apply(record: AlignmentRecord,
-            covariates: Array[CovariateKey]): AlignmentRecord = RecalibrateRead.time {
-    if (record.getQual != null &&
+  def apply(record: Alignment,
+            covariates: Array[CovariateKey]): Alignment = RecalibrateRead.time {
+    if (record.getQualityScores != null &&
       covariates.nonEmpty) {
-      AlignmentRecord.newBuilder(record)
-        .setQual(computeQual(record, covariates))
-        .setOrigQual(record.getQual)
+      Alignment.newBuilder(record)
+        .setQualityScores(computeQual(record, covariates))
+        .setOriginalQualityScores(record.getQualityScores)
         .build()
     } else {
       record
@@ -62,9 +62,9 @@ private[recalibration] case class Recalibrator(
    * @return Returns the new quality scores for this read by querying the error
    *   covariate table.
    */
-  private def computeQual(read: AlignmentRecord,
+  private def computeQual(read: Alignment,
                           covariates: Array[CovariateKey]): String = ComputeQualityScore.time {
-    val origQuals = read.getQual
+    val origQuals = read.getQualityScores
     val quals = new StringBuilder(origQuals)
     val newQuals = table(covariates)
     var idx = 0

@@ -17,10 +17,10 @@
  */
 package org.bdgenomics.adam.rdd.feature
 
+import grizzled.slf4j.Logging
 import htsjdk.samtools.ValidationStringency
 import org.bdgenomics.adam.models.SequenceRecord
 import org.bdgenomics.formats.avro.Feature
-import org.bdgenomics.utils.misc.Logging
 import scala.collection.JavaConversions._
 import scala.collection.mutable.ArrayBuffer
 
@@ -42,7 +42,7 @@ private[rdd] sealed trait FeatureParser extends Serializable with Logging {
     if (stringency == ValidationStringency.STRICT) {
       throw new IllegalArgumentException(message.format(line))
     } else if (stringency == ValidationStringency.LENIENT) {
-      log.warn(message.format(line))
+      warn(message.format(line))
     }
     None
   }
@@ -110,7 +110,7 @@ private[rdd] class GTFParser extends FeatureParser {
     val f = Feature.newBuilder()
       .setSource(source)
       .setFeatureType(featureType)
-      .setContigName(seqname)
+      .setReferenceName(seqname)
       .setStart(start.toLong - 1L) // GTF/GFF2 coordinate system is 1-based
       .setEnd(end.toLong) // GTF/GFF2 ranges are closed
 
@@ -154,8 +154,13 @@ private[rdd] object GFF3Parser {
  */
 private[rdd] class GFF3Parser extends FeatureParser {
 
-  // nucleotide + amino acid + ambiguity codes covers a-z
-  private val fastaRegex = "^[a-zA-Z]+$".r
+  /**
+   * Regular expression to identify valid FASTA format lines, primarly of use when
+   * reading FASTA formatted sequences from GFF3 files.  Nucleotide symbols, amino acid
+   * symbols, and ambiguity code symbols cover a-z. Also valid are whitespace, gap
+   * symbol -, and translation stop *.
+   */
+  private val fastaRegex = "^[a-zA-Z-*\\s]+$".r
 
   def isHeader(line: String): Boolean = {
     line.isEmpty || line.startsWith("#") || line.startsWith(">")
@@ -195,7 +200,7 @@ private[rdd] class GFF3Parser extends FeatureParser {
     val f = Feature.newBuilder()
       .setSource(source)
       .setFeatureType(featureType)
-      .setContigName(seqid)
+      .setReferenceName(seqid)
       .setStart(start.toLong - 1L) // GFF3 coordinate system is 1-based
       .setEnd(end.toLong) // GFF3 ranges are closed
 
@@ -251,7 +256,7 @@ private[rdd] class IntervalListParser extends FeatureParser {
               throw new Exception(s"Expected fields of the form 'key:value' in field $field but got: $x. Line:\n$line")
             } else {
               if (stringency == ValidationStringency.LENIENT) {
-                log.warn(s"Expected fields of the form 'key:value' in field $field but got: $x. Line:\n$line")
+                warn(s"Expected fields of the form 'key:value' in field $field but got: $x. Line:\n$line")
               }
               None
             }
@@ -281,11 +286,11 @@ private[rdd] class IntervalListParser extends FeatureParser {
     if (fields.length != 5) {
       throwWarnOrNone("Invalid IntervalList line: %s", line, stringency)
     }
-    val (contigName, start, end, strand, featureName) =
+    val (referenceName, start, end, strand, featureName) =
       (fields(0), fields(1), fields(2), fields(3), fields(4))
 
     val f = Feature.newBuilder()
-      .setContigName(contigName)
+      .setReferenceName(referenceName)
       .setStart(start.toLong - 1) // IntervalList ranges are 1-based
       .setEnd(end.toLong) // IntervalList ranges are closed
       .setName(featureName)
@@ -329,7 +334,7 @@ private[rdd] class BEDParser extends FeatureParser {
     }
 
     val f = Feature.newBuilder()
-      .setContigName(fields(0))
+      .setReferenceName(fields(0))
       .setStart(fields(1).toLong) // BED ranges are 0-based
       .setEnd(fields(2).toLong) // BED ranges are closed-open
 
@@ -384,7 +389,7 @@ private[rdd] class NarrowPeakParser extends FeatureParser {
     }
 
     val f = Feature.newBuilder()
-      .setContigName(fields(0))
+      .setReferenceName(fields(0))
       .setStart(fields(1).toLong) // NarrowPeak ranges are 0-based
       .setEnd(fields(2).toLong) // NarrowPeak ranges are closed-open
 

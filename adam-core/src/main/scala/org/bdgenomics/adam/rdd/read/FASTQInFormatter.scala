@@ -19,48 +19,47 @@ package org.bdgenomics.adam.rdd.read
 
 import java.io.OutputStream
 import org.apache.hadoop.conf.Configuration
-import org.bdgenomics.adam.converters.AlignmentRecordConverter
+import org.bdgenomics.adam.converters.AlignmentConverter
 import org.bdgenomics.adam.rdd.{ InFormatter, InFormatterCompanion }
-import org.bdgenomics.adam.rdd.fragment.FragmentRDD
-import org.bdgenomics.adam.sql.{ AlignmentRecord => AlignmentRecordProduct }
-import org.bdgenomics.formats.avro.AlignmentRecord
-import org.bdgenomics.utils.misc.Logging
+import org.bdgenomics.adam.rdd.fragment.FragmentDataset
+import org.bdgenomics.adam.sql.{ Alignment => AlignmentProduct }
+import org.bdgenomics.formats.avro.Alignment
 
 /**
  * InFormatter companion that creates an InFormatter that writes FASTQ.
  */
-object FASTQInFormatter extends InFormatterCompanion[AlignmentRecord, AlignmentRecordProduct, AlignmentRecordRDD, FASTQInFormatter] {
+object FASTQInFormatter extends InFormatterCompanion[Alignment, AlignmentProduct, AlignmentDataset, FASTQInFormatter] {
 
   /**
    * Builds an FASTQInFormatter to write FASTQ.
    *
-   * @param gRdd GenomicRDD of AlignmentRecords. Used to get HadoopConfiguration.
+   * @param gDataset GenomicDataset of Alignments. Used to get HadoopConfiguration.
    * @return Returns a new Single FASTQ InFormatter.
    */
-  def apply(gRdd: AlignmentRecordRDD): FASTQInFormatter = {
-    new FASTQInFormatter(gRdd.rdd.context.hadoopConfiguration)
+  def apply(gDataset: AlignmentDataset): FASTQInFormatter = {
+    new FASTQInFormatter(gDataset.rdd.context.hadoopConfiguration)
   }
 }
 
 class FASTQInFormatter private (
-    conf: Configuration) extends InFormatter[AlignmentRecord, AlignmentRecordProduct, AlignmentRecordRDD, FASTQInFormatter] with Logging {
+    conf: Configuration) extends InFormatter[Alignment, AlignmentProduct, AlignmentDataset, FASTQInFormatter] {
 
   protected val companion = FASTQInFormatter
-  private val converter = new AlignmentRecordConverter
-  private val writeSuffixes = conf.getBoolean(AlignmentRecordRDD.WRITE_SUFFIXES, false)
-  private val writeOriginalQualities = conf.getBoolean(AlignmentRecordRDD.WRITE_ORIGINAL_QUALITIES, false)
+  private val converter = new AlignmentConverter
+  private val writeSuffixes = conf.getBoolean(AlignmentDataset.WRITE_SUFFIXES, false)
+  private val writeOriginalQualityScores = conf.getBoolean(AlignmentDataset.WRITE_ORIGINAL_QUALITY_SCORES, false)
 
   /**
-   * Writes alignment records to an output stream in FASTQ format.
+   * Writes alignments to an output stream in FASTQ format.
    *
    * @param os An OutputStream connected to a process we are piping to.
    * @param iter An iterator of records to write.
    */
-  def write(os: OutputStream, iter: Iterator[AlignmentRecord]) {
+  def write(os: OutputStream, iter: Iterator[Alignment]) {
     iter.foreach(read => {
       val fastqRead = converter.convertToFastq(read,
         maybeAddSuffix = writeSuffixes,
-        outputOriginalBaseQualities = writeOriginalQualities) + "\n"
+        writeOriginalQualityScores) + "\n"
 
       os.write(fastqRead.getBytes)
     })

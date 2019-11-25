@@ -18,40 +18,40 @@
 package org.bdgenomics.adam.rdd.fragment
 
 import java.io.OutputStream
+import grizzled.slf4j.Logging
 import org.apache.hadoop.conf.Configuration
-import org.bdgenomics.adam.converters.AlignmentRecordConverter
+import org.bdgenomics.adam.converters.AlignmentConverter
 import org.bdgenomics.adam.rdd.{ InFormatter, InFormatterCompanion }
 import org.bdgenomics.adam.sql.{ Fragment => FragmentProduct }
 import org.bdgenomics.formats.avro.Fragment
-import org.bdgenomics.utils.misc.Logging
 
 /**
  * InFormatter companion that creates an InFormatter that writes interleaved
  * FASTQ.
  */
-object InterleavedFASTQInFormatter extends InFormatterCompanion[Fragment, FragmentProduct, FragmentRDD, InterleavedFASTQInFormatter] {
+object InterleavedFASTQInFormatter extends InFormatterCompanion[Fragment, FragmentProduct, FragmentDataset, InterleavedFASTQInFormatter] {
 
   /**
    * Builds an InterleavedFASTQInFormatter to write Interleaved FASTQ.
    *
-   * @param gRdd GenomicRDD of Fragments. Used to get HadoopConfiguration.
+   * @param gDataset GenomicDataset of Fragments. Used to get HadoopConfiguration.
    * @return Returns a new Interleaved FASTQ InFormatter.
    */
-  def apply(gRdd: FragmentRDD): InterleavedFASTQInFormatter = {
-    new InterleavedFASTQInFormatter(gRdd.rdd.context.hadoopConfiguration)
+  def apply(gDataset: FragmentDataset): InterleavedFASTQInFormatter = {
+    new InterleavedFASTQInFormatter(gDataset.rdd.context.hadoopConfiguration)
   }
 }
 
 class InterleavedFASTQInFormatter private (
-    conf: Configuration) extends InFormatter[Fragment, FragmentProduct, FragmentRDD, InterleavedFASTQInFormatter] with Logging {
+    conf: Configuration) extends InFormatter[Fragment, FragmentProduct, FragmentDataset, InterleavedFASTQInFormatter] with Logging {
 
   protected val companion = InterleavedFASTQInFormatter
-  private val converter = new AlignmentRecordConverter
-  private val writeSuffixes = conf.getBoolean(FragmentRDD.WRITE_SUFFIXES, false)
-  private val writeOriginalQualities = conf.getBoolean(FragmentRDD.WRITE_ORIGINAL_QUALITIES, false)
+  private val converter = new AlignmentConverter
+  private val writeSuffixes = conf.getBoolean(FragmentDataset.WRITE_SUFFIXES, false)
+  private val writeOriginalQualityScores = conf.getBoolean(FragmentDataset.WRITE_ORIGINAL_QUALITY_SCORES, false)
 
   /**
-   * Writes alignment records to an output stream in interleaved FASTQ format.
+   * Writes alignments to an output stream in interleaved FASTQ format.
    *
    * @param os An OutputStream connected to a process we are piping to.
    * @param iter An iterator of records to write.
@@ -61,11 +61,11 @@ class InterleavedFASTQInFormatter private (
       val reads = converter.convertFragment(frag).toSeq
 
       if (reads.size < 2) {
-        log.warn("Fewer than two reads for %s. Dropping...".format(frag))
+        warn("Fewer than two reads for %s. Dropping...".format(frag))
         None
       } else {
         if (reads.size > 2) {
-          log.warn("More than two reads for %s. Taking first 2.".format(frag))
+          warn("More than two reads for %s. Taking first 2.".format(frag))
         }
         Some((reads(0), reads(1)))
       }
@@ -75,10 +75,10 @@ class InterleavedFASTQInFormatter private (
       // convert both reads to fastq
       val fastq1 = converter.convertToFastq(read1,
         maybeAddSuffix = writeSuffixes,
-        outputOriginalBaseQualities = writeOriginalQualities) + "\n"
+        writeOriginalQualityScores) + "\n"
       val fastq2 = converter.convertToFastq(read2,
         maybeAddSuffix = writeSuffixes,
-        outputOriginalBaseQualities = writeOriginalQualities) + "\n"
+        writeOriginalQualityScores) + "\n"
 
       // write both to the output stream
       // ensure that reads are ordered properly if ordering is known (see #1702)
@@ -91,7 +91,7 @@ class InterleavedFASTQInFormatter private (
         os.write(fastq2.getBytes)
         os.write(fastq1.getBytes)
       } else {
-        log.warn("Improper pair of reads in fragment %s. Dropping...".format(p))
+        warn("Improper pair of reads in fragment %s. Dropping...".format(p))
       }
     })
   }

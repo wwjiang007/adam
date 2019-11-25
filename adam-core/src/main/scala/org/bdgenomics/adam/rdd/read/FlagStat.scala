@@ -18,7 +18,7 @@
 package org.bdgenomics.adam.rdd.read
 
 import org.apache.spark.rdd.RDD
-import org.bdgenomics.formats.avro.AlignmentRecord
+import org.bdgenomics.formats.avro.Alignment
 
 private[read] object FlagStatMetrics {
   val emptyFailedQuality = new FlagStatMetrics(0, DuplicateMetrics.empty, DuplicateMetrics.empty, 0, 0, 0, 0, 0, 0, 0, 0, 0, true)
@@ -28,22 +28,22 @@ private[read] object FlagStatMetrics {
 private[read] object DuplicateMetrics {
   val empty = new DuplicateMetrics(0, 0, 0, 0)
 
-  def apply(record: AlignmentRecord): (DuplicateMetrics, DuplicateMetrics) = {
+  def apply(record: Alignment): (DuplicateMetrics, DuplicateMetrics) = {
     import FlagStat.b2i
 
-    def isPrimary(record: AlignmentRecord): Boolean = {
+    def isPrimary(record: Alignment): Boolean = {
       record.getDuplicateRead && record.getPrimaryAlignment
     }
-    def isSecondary(record: AlignmentRecord): Boolean = {
+    def isSecondary(record: Alignment): Boolean = {
       record.getDuplicateRead && !record.getPrimaryAlignment
     }
 
-    def duplicateMetrics(f: (AlignmentRecord) => Boolean) = {
+    def duplicateMetrics(f: (Alignment) => Boolean) = {
       new DuplicateMetrics(
         b2i(f(record)),
         b2i(f(record) && record.getReadMapped && record.getMateMapped),
         b2i(f(record) && record.getReadMapped && !record.getMateMapped),
-        b2i(f(record) && (record.getContigName != record.getMateContigName))
+        b2i(f(record) && (record.getReferenceName != record.getMateReferenceName))
       )
     }
     (duplicateMetrics(isPrimary), duplicateMetrics(isSecondary))
@@ -92,11 +92,11 @@ private[read] object FlagStat {
   def b(boolean: java.lang.Boolean) = Option(boolean).exists(x => x)
   def i(int: java.lang.Integer): Int = Option(int).map(Integer2int).getOrElse(-1)
 
-  def apply(rdd: RDD[AlignmentRecord]) = {
+  def apply(rdd: RDD[Alignment]) = {
     rdd.map {
       p =>
         val mateMappedToDiffChromosome =
-          p.getReadPaired && p.getReadMapped && p.getMateMapped && (p.getContigName != p.getMateContigName)
+          p.getReadPaired && p.getReadMapped && p.getMateMapped && (p.getReferenceName != p.getMateReferenceName)
         val (primaryDuplicates, secondaryDuplicates) = DuplicateMetrics(p)
         new FlagStatMetrics(
           1,
@@ -109,7 +109,7 @@ private[read] object FlagStat {
           b2i(b(p.getReadPaired) && b(p.getReadMapped) && b(p.getMateMapped) && b(!p.getSupplementaryAlignment) && p.getPrimaryAlignment),
           b2i(b(p.getReadPaired) && b(p.getReadMapped) && b(!p.getMateMapped) && b(!p.getSupplementaryAlignment) && p.getPrimaryAlignment),
           b2i(b(mateMappedToDiffChromosome) && b(!p.getSupplementaryAlignment) && p.getPrimaryAlignment),
-          b2i(b(mateMappedToDiffChromosome && i(p.getMapq) >= 5) && b(!p.getSupplementaryAlignment) && p.getPrimaryAlignment),
+          b2i(b(mateMappedToDiffChromosome && i(p.getMappingQuality) >= 5) && b(!p.getSupplementaryAlignment) && p.getPrimaryAlignment),
           p.getFailedVendorQualityChecks
         )
     }.aggregate((FlagStatMetrics.emptyFailedQuality, FlagStatMetrics.emptyPassedQuality))(

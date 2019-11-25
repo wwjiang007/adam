@@ -30,14 +30,14 @@ private object FragmentCollector extends Serializable {
   /**
    * Apply method to create a fragment collector that is keyed by the contig.
    *
-   * @param fragment Fragment of a reference/assembled sequence to wrap.
+   * @param slice Slice of a reference/assembled sequence to wrap.
    * @return Returns key value pair where the key is the contig metadata and the
    *   value is a Fragment Collector object.
    */
-  def apply(fragment: NucleotideContigFragment): Option[(String, FragmentCollector)] = {
-    ReferenceRegion(fragment).map(rr => {
-      (fragment.getContigName,
-        FragmentCollector(Seq((rr, fragment.getSequence))))
+  def apply(slice: Slice): Option[(String, FragmentCollector)] = {
+    ReferenceRegion(slice).map(rr => {
+      (slice.getName,
+        FragmentCollector(Seq((rr, slice.getSequence))))
     })
   }
 }
@@ -114,26 +114,26 @@ private[adam] object FragmentConverter extends Serializable {
   }
 
   /**
-   * Converts a contig assembly into one or more reads.
+   * Converts a reference assembly into one or more reads.
    *
    * Takes in a reduced key value pair containing merged FragmentCollectors.
    * The strings that are in this FragmentCollector are used to create reads.
-   * The Contig key is used to populate the metadata for the contig.
+   * The reference key is used to populate the metadata for the reference.
    *
-   * @param kv (Contig metadata, FragmentCollector) key value pair.
-   * @return Returns one alignment record per sequence in the collector.
+   * @param kv (Reference metadata, FragmentCollector) key value pair.
+   * @return Returns one alignment per sequence in the collector.
    */
-  private[converters] def convertFragment(kv: (String, FragmentCollector)): Seq[AlignmentRecord] = {
+  private[converters] def convertFragment(kv: (String, FragmentCollector)): Seq[Alignment] = {
     // extract kv pair
-    val (contigName, fragment) = kv
+    val (referenceName, fragment) = kv
 
     // extract the fragment string and region
     fragment.fragments.map(p => {
       val (fragmentRegion, fragmentString) = p
 
       // build record
-      AlignmentRecord.newBuilder()
-        .setContigName(contigName)
+      Alignment.newBuilder()
+        .setReferenceName(referenceName)
         .setStart(fragmentRegion.start)
         .setEnd(fragmentRegion.end)
         .setSequence(fragmentString)
@@ -142,16 +142,16 @@ private[adam] object FragmentConverter extends Serializable {
   }
 
   /**
-   * Converts an RDD of NucleotideContigFragments into AlignmentRecords.
+   * Converts an RDD of Slices into Alignments.
    *
-   * Produces one alignment record per contiguous sequence contained in the
-   * input RDD. Fragments are merged down to the longest contiguous chunks
+   * Produces one alignment per contiguous sequence contained in the
+   * input RDD. Slices are merged down to the longest contiguous chunks
    * possible.
    *
    * @param rdd RDD of assembled sequences.
    * @return Returns an RDD of reads that represent aligned contigs.
    */
-  def convertRdd(rdd: RDD[NucleotideContigFragment]): RDD[AlignmentRecord] = {
+  def convertRdd(rdd: RDD[Slice]): RDD[Alignment] = {
     rdd.flatMap(FragmentCollector(_))
       .reduceByKey(mergeFragments)
       .flatMap(convertFragment)

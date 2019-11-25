@@ -17,18 +17,15 @@
  */
 package org.bdgenomics.adam.models
 
+import java.lang.{ Long => JLong }
+
 import com.esotericsoftware.kryo.io.{ Input, Output }
 import com.esotericsoftware.kryo.{ Kryo, Serializer }
-import org.apache.parquet.filter2.dsl.Dsl._
-import org.apache.parquet.filter2.predicate.FilterPredicate
+import org.apache.parquet.filter2.predicate.{ FilterApi, FilterPredicate }
+import org.apache.parquet.filter2.predicate.Operators.{ BinaryColumn, LongColumn }
+import org.apache.parquet.io.api.Binary
 import org.bdgenomics.formats.avro._
 import org.bdgenomics.utils.interval.array.Interval
-import org.hammerlab.genomics.loci.parsing.{
-  All,
-  LociRange,
-  LociRanges,
-  ParsedLoci
-}
 import scala.math.{ max, min }
 
 trait ReferenceOrdering[T <: ReferenceRegion] extends Ordering[T] {
@@ -65,8 +62,8 @@ trait OptionalReferenceOrdering[T <: ReferenceRegion] extends Ordering[Option[T]
 }
 
 /**
- * A sort order that orders all given regions lexicographically by contig and
- * numerically within a single contig, and puts all non-provided regions at
+ * A sort order that orders all given regions lexicographically by reference and
+ * numerically within a single reference sequence, and puts all non-provided regions at
  * the end. Regions are compared by start position first. If start positions
  * are equal, then we compare by end position.
  */
@@ -74,8 +71,8 @@ object RegionOrdering extends ReferenceOrdering[ReferenceRegion] {
 }
 
 /**
- * A sort order that orders all given regions lexicographically by contig and
- * numerically within a single contig, and puts all non-provided regions at
+ * A sort order that orders all given regions lexicographically by reference and
+ * numerically within a single reference sequence, and puts all non-provided regions at
  * the end. An extension of PositionOrdering to Optional data.
  *
  * @see PositionOrdering
@@ -103,32 +100,41 @@ object ReferenceRegion {
    * @return Returns an iterable collection of reference regions.
    */
   def fromString(loci: String): Iterable[ReferenceRegion] = {
-
-    ParsedLoci(loci) match {
-      case All => {
-        throw new IllegalArgumentException("Unsupported value 'all'")
-      }
-      case LociRanges(ranges) => {
-        ranges.map(range => range match {
-          case LociRange(contigName, start, None) => {
-            ReferencePosition(contigName, start)
+    loci
+      .split(",")
+      .map(_.trim)
+      .map(token => {
+        require(!token.isEmpty, "reference region must not be empty")
+        val colonIdx = token.lastIndexOf(":")
+        if (colonIdx == -1) {
+          all(token)
+        } else {
+          val referenceName = token.substring(0, colonIdx)
+          val dashIdx = token.lastIndexOf("-")
+          if (dashIdx == -1) {
+            if (token.endsWith("+")) {
+              toEnd(referenceName, token.substring(colonIdx + 1, token.length() - 1).toLong)
+            } else {
+              val position = token.substring(colonIdx + 1).toLong
+              apply(referenceName, position, position + 1L)
+            }
+          } else {
+            val start = token.substring(colonIdx + 1, dashIdx).toLong
+            val end = token.substring(dashIdx + 1).toLong
+            apply(referenceName, start, end)
           }
-          case LociRange(contigName, start, Some(end)) => {
-            ReferenceRegion(contigName, start, end)
-          }
-        })
-      }
-    }
+        }
+      })
   }
 
   /**
-   * Creates a reference region that starts at the beginning of a contig.
+   * Creates a reference region that starts at the beginning of a reference sequence.
    *
-   * @param referenceName The name of the reference contig that this region is
+   * @param referenceName The name of the reference sequence that this region is
    *   on.
    * @param end The end position for this region.
    * @param strand The strand of the genome that this region exists on.
-   * @return Returns a reference region that goes from the start of a contig to
+   * @return Returns a reference region that goes from the start of a reference sequence to
    *   a user provided end point.
    */
   def fromStart(referenceName: String,
@@ -140,12 +146,12 @@ object ReferenceRegion {
   /**
    * Creates a reference region that has an open end point.
    *
-   * @param referenceName The name of the reference contig that this region is
+   * @param referenceName The name of the reference sequence that this region is
    *   on.
    * @param start The start position for this region.
    * @param strand The strand of the genome that this region exists on.
    * @return Returns a reference region that goes from a user provided starting
-   *   point to the end of a contig.
+   *   point to the end of a reference sequence.
    */
   def toEnd(referenceName: String,
             start: Long,
@@ -154,11 +160,11 @@ object ReferenceRegion {
   }
 
   /**
-   * Creates a reference region that covers the entirety of a contig.
+   * Creates a reference region that covers the entirety of a reference sequence.
    *
-   * @param referenceName The name of the reference contig to cover.
+   * @param referenceName The name of the reference sequence to cover.
    * @param strand The strand of the genome that this region exists on.
-   * @return Returns a reference region that covers the entirety of a contig.
+   * @return Returns a reference region that covers the entirety of a reference sequence.
    */
   def all(referenceName: String,
           strand: Strand = Strand.INDEPENDENT): ReferenceRegion = {
@@ -172,7 +178,7 @@ object ReferenceRegion {
    * @param record Read to create region from.
    * @return Region corresponding to inclusive region of read alignment, if read is mapped.
    */
-  def opt(record: AlignmentRecord): Option[ReferenceRegion] = {
+  def opt(record: Alignment): Option[ReferenceRegion] = {
     if (record.getReadMapped) {
       Some(unstranded(record))
     } else {
@@ -188,11 +194,11 @@ object ReferenceRegion {
    */
   def apply(genotype: Genotype): ReferenceRegion = {
     if (genotype.getStart != -1) {
-      ReferenceRegion(genotype.getContigName,
+      ReferenceRegion(genotype.getReferenceName,
         genotype.getStart,
         genotype.getEnd)
     } else {
-      ReferenceRegion(genotype.getContigName,
+      ReferenceRegion(genotype.getReferenceName,
         0L,
         1L)
     }
@@ -206,9 +212,9 @@ object ReferenceRegion {
    */
   def apply(variant: Variant): ReferenceRegion = {
     if (variant.getStart != -1L) {
-      ReferenceRegion(variant.getContigName, variant.getStart, variant.getEnd)
+      ReferenceRegion(variant.getReferenceName, variant.getStart, variant.getEnd)
     } else {
-      ReferenceRegion(variant.getContigName, 0L, 1L)
+      ReferenceRegion(variant.getReferenceName, 0L, 1L)
     }
   }
 
@@ -224,10 +230,10 @@ object ReferenceRegion {
     ReferenceRegion(referenceName, start, end)
   }
 
-  private def checkRead(record: AlignmentRecord) {
+  private def checkRead(record: Alignment) {
     require(record.getReadMapped,
       "Cannot build reference region for unmapped read %s.".format(record))
-    require(record.getContigName != null &&
+    require(record.getReferenceName != null &&
       record.getStart != null &&
       record.getEnd != null,
       "Read %s contains required fields that are null.".format(record))
@@ -244,9 +250,9 @@ object ReferenceRegion {
    *
    * @see stranded
    */
-  def unstranded(record: AlignmentRecord): ReferenceRegion = {
+  def unstranded(record: Alignment): ReferenceRegion = {
     checkRead(record)
-    ReferenceRegion(record.getContigName, record.getStart, record.getEnd)
+    ReferenceRegion(record.getReferenceName, record.getStart, record.getEnd)
   }
 
   /**
@@ -260,7 +266,7 @@ object ReferenceRegion {
    *
    * @see unstranded
    */
-  def stranded(record: AlignmentRecord): ReferenceRegion = {
+  def stranded(record: Alignment): ReferenceRegion = {
     checkRead(record)
 
     val strand = Option(record.getReadNegativeStrand)
@@ -270,7 +276,7 @@ object ReferenceRegion {
         case Some(true)  => Strand.REVERSE
         case Some(false) => Strand.FORWARD
       }
-    new ReferenceRegion(record.getContigName,
+    new ReferenceRegion(record.getReferenceName,
       record.getStart,
       record.getEnd,
       strand = strand)
@@ -289,26 +295,44 @@ object ReferenceRegion {
   }
 
   /**
-   * Generates a reference region from assembly data. Returns None if the assembly does not
-   * have an ID or a start position.
+   * Generates a reference region from a sequence. Returns None if the sequence does not
+   * have a name or a length.
    *
-   * @param fragment Assembly fragment from which to generate data.
-   * @return Region corresponding to inclusive region of contig fragment.
+   * @param sequence Sequence from which to generate data.
+   * @return Region corresponding to inclusive region of the specified sequence.
    */
-  def apply(fragment: NucleotideContigFragment): Option[ReferenceRegion] = {
-    if (fragment.getContigName != null &&
-      fragment.getStart != null &&
-      fragment.getEnd != null) {
-      Some(ReferenceRegion(fragment.getContigName,
-        fragment.getStart,
-        fragment.getEnd))
+  def apply(sequence: Sequence): Option[ReferenceRegion] = {
+    if (sequence.getName != null &&
+      sequence.getLength != null) {
+      Some(ReferenceRegion(sequence.getName,
+        0L,
+        sequence.getLength))
+    } else {
+      None
+    }
+  }
+
+  /**
+   * Generates a reference region from a slice. Returns None if the slice does not
+   * have a name, a start position, or an end position.
+   *
+   * @param slice Slice from which to generate data.
+   * @return Region corresponding to inclusive region of the specified slice.
+   */
+  def apply(slice: Slice): Option[ReferenceRegion] = {
+    if (slice.getName != null &&
+      slice.getStart != null &&
+      slice.getEnd != null) {
+      Some(ReferenceRegion(slice.getName,
+        slice.getStart,
+        slice.getEnd))
     } else {
       None
     }
   }
 
   private def checkFeature(record: Feature) {
-    require(record.getContigName != null &&
+    require(record.getReferenceName != null &&
       record.getStart != null &&
       record.getEnd != null,
       "Feature %s contains required fields that are null.".format(record))
@@ -324,7 +348,7 @@ object ReferenceRegion {
    */
   def unstranded(feature: Feature): ReferenceRegion = {
     checkFeature(feature)
-    new ReferenceRegion(feature.getContigName, feature.getStart, feature.getEnd)
+    new ReferenceRegion(feature.getReferenceName, feature.getStart, feature.getEnd)
   }
 
   /**
@@ -342,7 +366,7 @@ object ReferenceRegion {
     checkFeature(feature)
     require(feature.getStrand != null,
       "Strand is not defined in feature %s.".format(feature))
-    new ReferenceRegion(feature.getContigName,
+    new ReferenceRegion(feature.getReferenceName,
       feature.getStart,
       feature.getEnd,
       strand = feature.getStrand)
@@ -355,7 +379,7 @@ object ReferenceRegion {
    * @return Extracted ReferenceRegion
    */
   def apply(coverage: Coverage): ReferenceRegion = {
-    new ReferenceRegion(coverage.contigName, coverage.start, coverage.end)
+    new ReferenceRegion(coverage.referenceName, coverage.start, coverage.end)
   }
 
   /**
@@ -370,7 +394,7 @@ object ReferenceRegion {
       "Cannot create a predicate from an empty set of regions.")
     regions.toIterable
       .map(_.toPredicate)
-      .reduce(_ || _)
+      .reduce(FilterApi.or)
   }
 }
 
@@ -681,10 +705,10 @@ case class ReferenceRegion(
   }
 
   /**
-   * Determines if two regions are on the same contig.
+   * Determines if two regions are on the same reference sequence.
    *
    * @param other The other region.
-   * @return True if the two are on the same reference name, false otherwise.
+   * @return True if the two are on the same reference sequence, false otherwise.
    */
   @inline final def sameReferenceName(other: ReferenceRegion): Boolean = {
     referenceName == other.referenceName
@@ -742,9 +766,12 @@ case class ReferenceRegion(
    *   region.
    */
   def toPredicate: FilterPredicate = {
-    ((LongColumn("end") > start) &&
-      (LongColumn("start") <= end) &&
-      (BinaryColumn("contigName") === referenceName))
+    FilterApi.and(
+      FilterApi.and(
+        FilterApi.gt[JLong, LongColumn](FilterApi.longColumn("end"), start),
+        FilterApi.ltEq[JLong, LongColumn](FilterApi.longColumn("start"), end)),
+      FilterApi.eq[Binary, BinaryColumn](
+        FilterApi.binaryColumn("referenceName"), Binary.fromString(referenceName)))
   }
 
   override def hashCode: Int = {

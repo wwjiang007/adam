@@ -2,9 +2,9 @@ Building ADAM from Source
 =========================
 
 You will need to have `Apache Maven <http://maven.apache.org/>`__
-version 3.1.1 or later installed in order to build ADAM.
+version 3.3.9 or later installed in order to build ADAM.
 
-    **Note:** The default configuration is for Hadoop 2.7.3. If building
+    **Note:** The default configuration is for Hadoop 2.7.5. If building
     against a different version of Hadoop, please pass
     ``-Dhadoop.version=<HADOOP_VERSION>`` to the Maven command.
 
@@ -55,7 +55,7 @@ To build and test `ADAM's Python bindings <#python>`__, enable the
 
 .. code:: bash
 
-    mvn -Ppython package
+    mvn -P python package
 
 This will enable the ``adam-python`` module as part of the ADAM build.
 This module uses Maven to invoke a Makefile that builds a Python egg and
@@ -63,13 +63,23 @@ runs tests. To build this module, we require either an active
 `Conda <https://conda.io/>`__ or
 `virtualenv <https://virtualenv.pypa.io/en/stable/>`__ environment.
 
+ADAM can run on both Python 2 and Python 3.
 `To setup and activate a Conda
-environment <https://conda.io/docs/using/envs.html>`__, run:
+environment <https://conda.io/docs/using/envs.html>`__ for Python 2.7, run:
 
 .. code:: bash
 
     conda create -n adam python=2.7 anaconda
     source activate adam
+
+`To setup and activate a Conda
+environment <https://conda.io/docs/using/envs.html>`__ for Python 3.6, run:
+
+.. code:: bash
+
+    conda create -n adam python=3.6 anaconda
+    source activate adam
+
 
 `To setup and activate a virtualenv
 environment <https://virtualenv.pypa.io/en/stable/userguide/#usage>`__,
@@ -114,7 +124,7 @@ ADAM supports SparkR, for Spark 2.1.0 and onwards. To build and test
 
 .. code:: bash
 
-    mvn -Pr package
+    mvn -P r package
 
 This will enable the ``adam-r`` module as part of the ADAM build. This
 module uses Maven to invoke the ``R`` executable to build the
@@ -127,9 +137,21 @@ module uses Maven to invoke the ``R`` executable to build the
     R -e "install.packages('roxygen2', repos='http://cran.rstudio.com/')"
     R -e "install.packages('devtools', repos='http://cran.rstudio.com/')"
 
+Installation of ``devtools`` may require ``libgit2`` as a dependency.
+
+.. code:: bash
+
+    apt-get install libgit2-dev
+
 The build also requires you to have the ``SparkR`` package installed,
-and the ADAM JARs must be built and provided to ``SparkR``. This can be
-done with the following bash commands:
+where ``v2.x.x`` should match your Spark version.
+
+.. code:: bash
+
+   R -e "devtools::install_github('apache/spark@v2.x.x', subdir='R/pkg')"
+
+The ADAM JARs can then be provided to ``SparkR`` with the following bash
+commands:
 
 .. code:: bash
 

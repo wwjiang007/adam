@@ -18,10 +18,10 @@
 package org.bdgenomics.adam.rdd.read.recalibration
 
 import org.bdgenomics.adam.models.{
-  RecordGroup,
-  RecordGroupDictionary
+  ReadGroup,
+  ReadGroupDictionary
 }
-import org.bdgenomics.formats.avro.AlignmentRecord
+import org.bdgenomics.formats.avro.Alignment
 import org.scalatest.FunSuite
 
 class RecalibratorSuite extends FunSuite {
@@ -37,16 +37,16 @@ class RecalibratorSuite extends FunSuite {
         1,
         'N',
         'N') -> new Aggregate(100000, 1, 10.0)))))
-  val rgd = RecordGroupDictionary(Seq(RecordGroup("s", "rg0")))
+  val rgd = ReadGroupDictionary(Seq(ReadGroup("s", "rg0")))
 
-  val read = AlignmentRecord.newBuilder
-    .setContigName("chr1")
-    .setRecordGroupName("rg0")
+  val read = Alignment.newBuilder
+    .setReferenceName("chr1")
+    .setReadGroupId("rg0")
     .setStart(10L)
     .setEnd(12L)
     .setSequence("AC")
     .setReadNegativeStrand(false)
-    .setQual(Seq(40, 50).map(i => (i + 33).toChar).mkString)
+    .setQualityScores(Seq(40, 50).map(i => (i + 33).toChar).mkString)
     .setDuplicateRead(false)
     .setReadMapped(true)
     .setReadPaired(false)
@@ -54,24 +54,24 @@ class RecalibratorSuite extends FunSuite {
     .setPrimaryAlignment(true)
     .setCigar("2M")
     .setMismatchingPositions("2")
-    .setMapq(40)
+    .setMappingQuality(40)
     .build
 
   val hiRecalibrator = Recalibrator(table, (48 + 33).toChar)
   val lowRecalibrator = Recalibrator(table, (40 + 33).toChar)
 
   test("don't replace quality if quality was null") {
-    val qualFreeRead = AlignmentRecord.newBuilder(read)
-      .setQual(null)
+    val qualFreeRead = Alignment.newBuilder(read)
+      .setQualityScores(null)
       .build
     val recalibratedRead = lowRecalibrator(qualFreeRead,
       Array.empty)
-    assert(recalibratedRead.getQual === null)
-    assert(recalibratedRead.getOrigQual === null)
+    assert(recalibratedRead.getQualityScores === null)
+    assert(recalibratedRead.getOriginalQualityScores === null)
   }
 
   test("if no covariates, return alignment") {
-    val emptyRead = AlignmentRecord.newBuilder
+    val emptyRead = Alignment.newBuilder
       .setReadName("emptyRead")
       .build
     val notRecalibratedRead = lowRecalibrator(emptyRead, Array.empty)
@@ -81,8 +81,8 @@ class RecalibratorSuite extends FunSuite {
   test("skip recalibration if base is below quality threshold") {
     val recalibratedRead = hiRecalibrator(read,
       BaseQualityRecalibration.observe(read, rgd))
-    val expectedRead = AlignmentRecord.newBuilder(read)
-      .setOrigQual(read.getQual)
+    val expectedRead = Alignment.newBuilder(read)
+      .setOriginalQualityScores(read.getQualityScores)
       .build
     assert(recalibratedRead === expectedRead)
   }
@@ -90,9 +90,9 @@ class RecalibratorSuite extends FunSuite {
   test("recalibrate changed bases above quality threshold") {
     val recalibratedRead = lowRecalibrator(read,
       BaseQualityRecalibration.observe(read, rgd))
-    val expectedRead = AlignmentRecord.newBuilder(read)
-      .setQual(Seq(47, 50).map(i => (i + 33).toChar).mkString)
-      .setOrigQual(read.getQual)
+    val expectedRead = Alignment.newBuilder(read)
+      .setQualityScores(Seq(47, 50).map(i => (i + 33).toChar).mkString)
+      .setOriginalQualityScores(read.getQualityScores)
       .build
     assert(recalibratedRead === expectedRead)
   }

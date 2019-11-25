@@ -15,14 +15,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+r"""
+===========
+adamContext
+===========
+.. currentmodule:: bdgenomics.adam.adamContext
+.. autosummary::
+   :toctree: _generate/
 
-from bdgenomics.adam.rdd import AlignmentRecordRDD, \
-    CoverageRDD, \
-    FeatureRDD, \
-    FragmentRDD, \
-    GenotypeRDD, \
-    NucleotideContigFragmentRDD, \
-    VariantRDD
+   ADAMContext
+"""
+
+from bdgenomics.adam.rdd import AlignmentDataset, \
+    CoverageDataset, \
+    FeatureDataset, \
+    FragmentDataset, \
+    GenotypeDataset, \
+    SequenceDataset, \
+    SliceDataset, \
+    VariantDataset
+
 from bdgenomics.adam.stringency import STRICT, _toJava
 
 
@@ -35,10 +47,9 @@ class ADAMContext(object):
 
     def __init__(self, ss):
         """
-        Initializes an ADAMContext using a SparkContext.
+        Initializes an ADAMContext using a SparkSession.
 
-        :param pyspark.context.SparkContext sc: The currently active
-        SparkContext.
+        :param ss: The currently active pyspark.context.SparkContext.
         """
 
         self._sc = ss.sparkContext
@@ -49,30 +60,30 @@ class ADAMContext(object):
 
     def loadAlignments(self, filePath, stringency=STRICT):
         """
-        Load alignment records into an AlignmentRecordRDD.
+        Load alignments into an AlignmentDataset.
 
         Loads path names ending in:
         * .bam/.cram/.sam as BAM/CRAM/SAM format,
         * .fa/.fasta as FASTA format,
         * .fq/.fastq as FASTQ format, and
         * .ifq as interleaved FASTQ format.
-        
+
         If none of these match, fall back to Parquet + Avro.
-        
+
         For FASTA, FASTQ, and interleaved FASTQ formats, compressed files are supported
         through compression codecs configured in Hadoop, which by default include .gz and .bz2,
         but can include more.
 
         :param str filePath: The path to load the file from.
         :param stringency: The validation stringency to apply. Defaults to STRICT.
-        :return: Returns an RDD containing reads.
-        :rtype: bdgenomics.adam.rdd.AlignmentRecordRDD
+        :return: Returns a genomic dataset containing reads.
+        :rtype: bdgenomics.adam.rdd.AlignmentDataset
         """
 
         adamRdd = self.__jac.loadAlignments(filePath,
                                             _toJava(stringency, self._jvm))
 
-        return AlignmentRecordRDD(adamRdd, self._sc)
+        return AlignmentDataset(adamRdd, self._sc)
 
 
     def loadIndexedBam(self,
@@ -85,33 +96,32 @@ class ADAMContext(object):
         BAM index file required.
 
         :param str pathName: The path name to load indexed BAM formatted
-        alignment records from. Globs/directories are supported.
+        alignments from. Globs/directories are supported.
         :param list<ReferenceRegion> viewRegions: List of ReferenceRegion to
         filter on.
         :param int stringency: The validation stringency to use when validating
         the BAM/CRAM/SAM format header. Defaults to ValidationStringency.STRICT.
 
-        :return Returns an AlignmentRecordRDD which wraps the RDD of alignment
-        records, sequence dictionary representing contigs the alignment records
-        may be aligned to, and the record group dictionary for the alignment
+        :return Returns an AlignmentDataset which wraps the RDD of alignment
+        records, sequence dictionary representing contigs the alignments
+        may be aligned to, and the read group dictionary for the alignment
         records if one is available.
-        :rtype: bdgenomics.adam.rdd.AlignmentRecordRDD
+        :rtype: bdgenomics.adam.rdd.AlignmentDataset
         """
 
         # translate reference regions into jvm types
         javaRrs = [rr._toJava(self._jvm) for rr in viewRegions]
-        
+
         adamRdd = self.__jac.loadIndexedBam(filePath,
                                             javaRrs,
                                             _toJava(stringency, self._jvm))
+        return AlignmentDataset(adamRdd, self._sc)
 
-        return AlignmentRecordRDD(adamRdd, self._sc)
-    
 
     def loadCoverage(self, filePath,
                      stringency=STRICT):
         """
-        Load features into a FeatureRDD and convert to a CoverageRDD.
+        Load features into a FeatureDataset and convert to a CoverageDataset.
         Coverage is stored in the score field of Feature.
 
         Loads path names ending in:
@@ -129,39 +139,19 @@ class ADAMContext(object):
 
         :param str filePath: The path to load coverage data from.
         :param stringency: The validation stringency to apply. Defaults to STRICT.
-        :return: Returns an RDD containing coverage.
-        :rtype: bdgenomics.adam.rdd.CoverageRDD
+        :return: Returns a genomic dataset containing coverage.
+        :rtype: bdgenomics.adam.rdd.CoverageDataset
         """
 
         adamRdd = self.__jac.loadCoverage(filePath,
                                           _toJava(stringency, self._jvm))
 
-        return CoverageRDD(adamRdd, self._sc)
-        
-
-    def loadContigFragments(self, filePath):
-        """
-        Load nucleotide contig fragments into a NucleotideContigFragmentRDD.
-
-        If the path name has a .fa/.fasta extension, load as FASTA format.
-        Else, fall back to Parquet + Avro.
-
-        For FASTA format, compressed files are supported through compression codecs configured
-        in Hadoop, which by default include .gz and .bz2, but can include more.
-
-        :param str filePath: The path to load the file from.
-        :return: Returns an RDD containing sequence fragments.
-        :rtype: bdgenomics.adam.rdd.NucleotideContigFragmentRDD
-        """
-
-        adamRdd = self.__jac.loadContigFragments(filePath)
-
-        return NucleotideContigFragmentRDD(adamRdd, self._sc)
+        return CoverageDataset(adamRdd, self._sc)
 
 
     def loadFragments(self, filePath, stringency=STRICT):
         """
-        Load fragments into a FragmentRDD.
+        Load fragments into a FragmentDataset.
 
         Loads path names ending in:
         * .bam/.cram/.sam as BAM/CRAM/SAM format and
@@ -173,18 +163,18 @@ class ADAMContext(object):
 
         :param str filePath: The path to load the file from.
         :param stringency: The validation stringency to apply. Defaults to STRICT.
-        :return: Returns an RDD containing sequenced fragments.
-        :rtype: bdgenomics.adam.rdd.FragmentRDD
+        :return: Returns a genomic dataset containing sequenced fragments.
+        :rtype: bdgenomics.adam.rdd.FragmentDataset
         """
 
         adamRdd = self.__jac.loadFragments(filePath, stringency)
 
-        return FragmentRDD(adamRdd, self._sc)
+        return FragmentDataset(adamRdd, self._sc)
 
 
     def loadFeatures(self, filePath, stringency=STRICT):
         """
-        Load features into a FeatureRDD.
+        Load features into a FeatureDataset.
 
         Loads path names ending in:
         * .bed as BED6/12 format,
@@ -201,49 +191,119 @@ class ADAMContext(object):
 
         :param str filePath: The path to load the file from.
         :param stringency: The validation stringency to apply. Defaults to STRICT.
-        :return: Returns an RDD containing features.
-        :rtype: bdgenomics.adam.rdd.FeatureRDD
+        :return: Returns a genomic dataset containing features.
+        :rtype: bdgenomics.adam.rdd.FeatureDataset
         """
 
         adamRdd = self.__jac.loadFeatures(filePath,
                                           _toJava(stringency, self._jvm))
 
-        return FeatureRDD(adamRdd, self._sc)
+        return FeatureDataset(adamRdd, self._sc)
 
 
     def loadGenotypes(self, filePath, stringency=STRICT):
         """
-        Load genotypes into a GenotypeRDD.
+        Load genotypes into a GenotypeDataset.
 
         If the path name has a .vcf/.vcf.gz/.vcf.bgz extension, load as VCF format.
         Else, fall back to Parquet + Avro.
 
         :param str filePath: The path to load the file from.
         :param stringency: The validation stringency to apply. Defaults to STRICT.
-        :return: Returns an RDD containing genotypes.
-        :rtype: bdgenomics.adam.rdd.GenotypeRDD
+        :return: Returns a genomic dataset containing genotypes.
+        :rtype: bdgenomics.adam.rdd.GenotypeDataset
         """
 
         adamRdd = self.__jac.loadGenotypes(filePath,
                                            _toJava(stringency, self._jvm))
 
-        return GenotypeRDD(adamRdd, self._sc)
+        return GenotypeDataset(adamRdd, self._sc)
 
 
     def loadVariants(self, filePath, stringency=STRICT):
         """
-        Load variants into a VariantRDD.
+        Load variants into a VariantDataset.
 
         If the path name has a .vcf/.vcf.gz/.vcf.bgz extension, load as VCF format.
         Else, fall back to Parquet + Avro.
 
         :param str filePath: The path to load the file from.
         :param stringency: The validation stringency to apply. Defaults to STRICT.
-        :return: Returns an RDD containing variants.
-        :rtype: bdgenomics.adam.rdd.VariantRDD
+        :return: Returns a genomic dataset containing variants.
+        :rtype: bdgenomics.adam.rdd.VariantDataset
         """
 
         adamRdd = self.__jac.loadVariants(filePath,
                                           _toJava(stringency, self._jvm))
 
-        return VariantRDD(adamRdd, self._sc)
+        return VariantDataset(adamRdd, self._sc)
+
+
+    def loadDnaSequences(self, filePath):
+        """
+        Load DNA sequences into a SequenceDataset.
+
+        If the path name has a .fa/.fasta extension, load as FASTA format.
+        Else, fall back to Parquet + Avro.
+
+        :param str filePath: The path to load the file from.
+        :return: Returns a genomic dataset containing DNA sequences.
+        :rtype: bdgenomics.adam.rdd.SequenceDataset
+        """
+
+        adamRdd = self.__jac.loadDnaSequences(filePath)
+
+        return SequenceDataset(adamRdd, self._sc)
+
+
+    def loadProteinSequences(self, filePath):
+        """
+        Load protein sequences into a SequenceDataset.
+
+        If the path name has a .fa/.fasta extension, load as FASTA format.
+        Else, fall back to Parquet + Avro.
+
+        :param str filePath: The path to load the file from.
+        :return: Returns a genomic dataset containing protein sequences.
+        :rtype: bdgenomics.adam.rdd.SequenceDataset
+        """
+
+        adamRdd = self.__jac.loadProteinSequences(filePath)
+
+        return SequenceDataset(adamRdd, self._sc)
+
+
+    def loadRnaSequences(self, filePath):
+        """
+        Load RNA sequences into a SequenceDataset.
+
+        If the path name has a .fa/.fasta extension, load as FASTA format.
+        Else, fall back to Parquet + Avro.
+
+        :param str filePath: The path to load the file from.
+        :return: Returns a genomic dataset containing RNA sequences.
+        :rtype: bdgenomics.adam.rdd.SequenceDataset
+        """
+
+        adamRdd = self.__jac.loadRnaSequences(filePath)
+
+        return SequenceDataset(adamRdd, self._sc)
+
+
+    def loadSlices(self, filePath, maximumLength):
+        """
+        Load slices into a SliceDataset.
+
+        If the path name has a .fa/.fasta extension, load as DNA in FASTA format.
+        Else, fall back to Parquet + Avro.
+
+        :param str filePath: The path to load the file from.
+        :param long maximumLength: Maximum slice length.
+        :return: Returns a genomic dataset containing sequence slices.
+        :rtype: bdgenomics.adam.rdd.SliceDataset
+        """
+
+        adamRdd = self.__jac.loadSlices(filePath, maximumLength)
+
+        return SliceDataset(adamRdd, self._sc)
+

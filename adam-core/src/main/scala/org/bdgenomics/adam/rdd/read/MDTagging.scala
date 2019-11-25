@@ -17,15 +17,15 @@
  */
 package org.bdgenomics.adam.rdd.read
 
+import grizzled.slf4j.Logging
 import htsjdk.samtools.{ TextCigarCodec, ValidationStringency }
 import org.apache.spark.rdd.RDD
 import org.bdgenomics.adam.models.{ MdTag, ReferenceRegion }
 import org.bdgenomics.adam.util.ReferenceFile
-import org.bdgenomics.formats.avro.AlignmentRecord
-import org.bdgenomics.utils.misc.Logging
+import org.bdgenomics.formats.avro.Alignment
 
 private[read] case class MDTagging(
-    reads: RDD[AlignmentRecord],
+    reads: RDD[Alignment],
     @transient referenceFile: ReferenceFile,
     overwriteExistingTags: Boolean = false,
     validationStringency: ValidationStringency = ValidationStringency.STRICT) extends Logging {
@@ -38,7 +38,7 @@ private[read] case class MDTagging(
 
   val taggedReads = addMDTagsBroadcast.cache
 
-  def maybeMDTagRead(read: AlignmentRecord, refSeq: String): AlignmentRecord = {
+  def maybeMDTagRead(read: Alignment, refSeq: String): Alignment = {
 
     val cigar = TextCigarCodec.decode(read.getCigar)
     val mdTag = MdTag(read.getSequence, refSeq, cigar, read.getStart)
@@ -53,7 +53,7 @@ private[read] case class MDTagging(
           if (validationStringency == ValidationStringency.STRICT) {
             throw exception
           } else if (validationStringency == ValidationStringency.LENIENT) {
-            log.warn(exception.getMessage)
+            warn(exception.getMessage)
           }
         }
       }
@@ -64,11 +64,11 @@ private[read] case class MDTagging(
     read
   }
 
-  def addMDTagsBroadcast(): RDD[AlignmentRecord] = {
+  def addMDTagsBroadcast(): RDD[Alignment] = {
     val referenceFileB = sc.broadcast(referenceFile)
     reads.map(read => {
       (for {
-        contig <- Option(read.getContigName)
+        reference <- Option(read.getReferenceName)
         if read.getReadMapped
       } yield {
         try {
@@ -79,8 +79,8 @@ private[read] case class MDTagging(
             if (validationStringency == ValidationStringency.STRICT) {
               throw t
             } else if (validationStringency == ValidationStringency.LENIENT) {
-              log.warn("Caught exception when processing read %s: %s".format(
-                read.getContigName, t))
+              warn("Caught exception when processing read %s: %s".format(
+                read.getReferenceName, t))
             }
             read
           }
@@ -100,7 +100,7 @@ private[read] case class MDTagging(
  * @param read The read whose MD tag was recomputed, with original MD tag.
  * @param mdTag The recomputed MD tag.
  */
-case class IncorrectMDTagException(read: AlignmentRecord, mdTag: String) extends Exception {
+case class IncorrectMDTagException(read: Alignment, mdTag: String) extends Exception {
   override def getMessage: String =
-    s"Read: ${read.getReadName}, pos: ${read.getContigName}:${read.getStart}, cigar: ${read.getCigar}, existing MD tag: ${read.getMismatchingPositions}, correct MD tag: $mdTag"
+    s"Read: ${read.getReadName}, pos: ${read.getReferenceName}:${read.getStart}, cigar: ${read.getCigar}, existing MD tag: ${read.getMismatchingPositions}, correct MD tag: $mdTag"
 }

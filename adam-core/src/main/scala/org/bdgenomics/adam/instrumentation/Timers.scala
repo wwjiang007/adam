@@ -26,19 +26,22 @@ object Timers extends Metrics {
 
   // Load methods
   val LoadAlignments = timer("Load Alignments")
-  val LoadContigFragments = timer("Load Contig Fragments")
   val LoadCoverage = timer("Load Coverage")
   val LoadFeatures = timer("Load Features")
   val LoadFragments = timer("Load Fragments")
   val LoadGenotypes = timer("Load Genotypes")
   val LoadReferenceFile = timer("Load ReferenceFile")
   val LoadSequenceDictionary = timer("Load SequenceDictionary")
+  val LoadSequences = timer("Load Sequences")
+  val LoadSlices = timer("Load Slices")
   val LoadVariants = timer("Load Variants")
 
   // Format specific load methods
   val LoadBam = timer("Load BAM/CRAM/SAM format")
   val LoadBed = timer("Load BED6/12 format")
   val LoadFasta = timer("Load FASTA format")
+  val LoadFastaSequences = timer("Load FASTA format as Sequences")
+  val LoadFastaSlices = timer("Load FASTA format as Slices")
   val LoadFastq = timer("Load FASTQ format")
   val LoadGff3 = timer("Load GFF3 format")
   val LoadGtf = timer("Load GTF/GFF2 format")
@@ -106,13 +109,14 @@ object Timers extends Metrics {
   val SweepReadOverReferenceForQuality = timer("Sweep Read Over Reference For Quality")
   val FinalizingRealignments = timer("Finalizing Realignments")
 
-  // Sort Reads
-  val SortReads = timer("Sort Reads")
-  val SortByIndex = timer("Sort Reads By Index")
+  // Sort Alignments
+  val SortAlignments = timer("Sort Alignments")
+  val SortAlignmentsByIndex = timer("Sort Alignments By Index")
 
   // File Saving
   val SAMSave = timer("SAM Save")
   val ConvertToSAM = timer("Convert To SAM")
+  val ConvertToVcf = timer("Convert To VCF")
   val ConvertToSAMRecord = timer("Convert To SAM Record")
   val SaveAsADAM = timer("Save File In ADAM Format")
   val SaveAsVcf = timer("Save File In VCF Format")
@@ -128,7 +132,7 @@ object Timers extends Metrics {
   val GrowingTrees = timer("Growing forest of trees")
   val RunningMapSideJoin = timer("Running map-side join")
 
-  // org.bdgenomics.adam.rdd.GenomicRDD
+  // org.bdgenomics.adam.rdd.GenomicDataset
   val InnerBroadcastJoin = timer("Inner broadcast region join")
   val RightOuterBroadcastJoin = timer("Right outer broadcast region join")
   val BroadcastJoinAndGroupByRight = timer("Broadcast join followed by group-by on right")
@@ -139,4 +143,6 @@ object Timers extends Metrics {
   val FullOuterShuffleJoin = timer("Full outer shuffle region join")
   val ShuffleJoinAndGroupByLeft = timer("Shuffle join followed by group-by on left")
   val RightOuterShuffleJoinAndGroupByLeft = timer("Right outer shuffle join followed by group-by on left")
+
+  val CreateSequenceDictionary = timer("Create sequence dictionary")
 }

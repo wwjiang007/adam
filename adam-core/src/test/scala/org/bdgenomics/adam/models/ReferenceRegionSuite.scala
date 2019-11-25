@@ -39,13 +39,38 @@ class ReferenceRegionSuite extends FunSuite {
     }
   }
 
-  test("can't parse all locus") {
+  test("parse empty string throws IllegalArgumentException") {
     intercept[IllegalArgumentException] {
-      ReferenceRegion.fromString("all")
+      ReferenceRegion.fromString("")
     }
     intercept[IllegalArgumentException] {
-      ReferenceRegion.fromString("1:100-200,all")
+      ReferenceRegion.fromString(" \t")
     }
+    intercept[IllegalArgumentException] {
+      ReferenceRegion.fromString(",, ")
+    }
+  }
+
+  test("parse contigName only string into reference regions") {
+    val loci = ReferenceRegion.fromString("1")
+    assert(loci.size === 1)
+    val ctg1 = loci.filter(_.referenceName == "1")
+    assert(ctg1.size === 1)
+    assert(ctg1.head.start === 0L)
+    assert(ctg1.head.end === Long.MaxValue)
+  }
+
+  test("parse to end strings into reference regions") {
+    val loci = ReferenceRegion.fromString("1:100+,2:101+")
+    assert(loci.size === 2)
+    val ctg1 = loci.filter(_.referenceName == "1")
+    assert(ctg1.size === 1)
+    assert(ctg1.head.start === 100L)
+    assert(ctg1.head.end === Long.MaxValue)
+    val ctg2 = loci.filter(_.referenceName == "2")
+    assert(ctg2.size === 1)
+    assert(ctg2.head.start === 101L)
+    assert(ctg2.head.end === Long.MaxValue)
   }
 
   test("parse string into reference regions") {
@@ -278,7 +303,7 @@ class ReferenceRegionSuite extends FunSuite {
 
   test("create region from unmapped read fails") {
     intercept[IllegalArgumentException] {
-      val read = AlignmentRecord.newBuilder()
+      val read = Alignment.newBuilder()
         .setReadMapped(false)
         .build()
       ReferenceRegion.unstranded(read)
@@ -287,7 +312,7 @@ class ReferenceRegionSuite extends FunSuite {
 
   test("create region from read with null alignment positions fails") {
     intercept[IllegalArgumentException] {
-      val read = AlignmentRecord.newBuilder()
+      val read = Alignment.newBuilder()
         .setReadMapped(true)
         .build()
       ReferenceRegion.unstranded(read)
@@ -296,7 +321,7 @@ class ReferenceRegionSuite extends FunSuite {
 
   test("create stranded region from unmapped read fails") {
     intercept[IllegalArgumentException] {
-      val read = AlignmentRecord.newBuilder()
+      val read = Alignment.newBuilder()
         .setReadMapped(false)
         .build()
       ReferenceRegion.stranded(read)
@@ -305,7 +330,7 @@ class ReferenceRegionSuite extends FunSuite {
 
   test("create stranded region from read with null alignment positions fails") {
     intercept[IllegalArgumentException] {
-      val read = AlignmentRecord.newBuilder()
+      val read = Alignment.newBuilder()
         .setReadMapped(true)
         .build()
       ReferenceRegion.stranded(read)
@@ -314,11 +339,11 @@ class ReferenceRegionSuite extends FunSuite {
 
   test("create stranded region from read with null alignment strand fails") {
     intercept[IllegalArgumentException] {
-      val read = AlignmentRecord.newBuilder()
+      val read = Alignment.newBuilder()
         .setReadMapped(true)
         .setStart(10L)
         .setEnd(15L)
-        .setContigName("ctg")
+        .setReferenceName("ctg")
         .setReadNegativeStrand(null)
         .build()
       ReferenceRegion.stranded(read)
@@ -326,11 +351,11 @@ class ReferenceRegionSuite extends FunSuite {
   }
 
   test("create stranded region from read on forward strand") {
-    val read = AlignmentRecord.newBuilder()
+    val read = Alignment.newBuilder()
       .setReadMapped(true)
       .setStart(10L)
       .setEnd(15L)
-      .setContigName("ctg")
+      .setReferenceName("ctg")
       .setReadNegativeStrand(false)
       .build()
     val rr = ReferenceRegion.stranded(read)
@@ -341,11 +366,11 @@ class ReferenceRegionSuite extends FunSuite {
   }
 
   test("create stranded region from read on reverse strand") {
-    val read = AlignmentRecord.newBuilder()
+    val read = Alignment.newBuilder()
       .setReadMapped(true)
       .setStart(10L)
       .setEnd(15L)
-      .setContigName("ctg")
+      .setReferenceName("ctg")
       .setReadNegativeStrand(true)
       .build()
     val rr = ReferenceRegion.stranded(read)
@@ -356,13 +381,13 @@ class ReferenceRegionSuite extends FunSuite {
   }
 
   test("create region from mapped read contains read start and end") {
-    val read = AlignmentRecord.newBuilder()
+    val read = Alignment.newBuilder()
       .setReadMapped(true)
       .setSequence("AAAAA")
       .setStart(1L)
       .setCigar("5M")
       .setEnd(6L)
-      .setContigName("chr1")
+      .setReferenceName("chr1")
       .build()
 
     assert(ReferenceRegion.unstranded(read).contains(point("chr1", 1L)))
@@ -427,14 +452,14 @@ class ReferenceRegionSuite extends FunSuite {
   }
 
   test("region name is sanitized when creating region from read") {
-    val contig = Contig.newBuilder()
-      .setContigName("chrM")
+    val reference = Reference.newBuilder()
+      .setName("chrM")
       .build()
 
-    val read = AlignmentRecord.newBuilder()
+    val read = Alignment.newBuilder()
       .setStart(5L)
       .setSequence("ACGT")
-      .setContigName(contig.getContigName)
+      .setReferenceName(reference.getName)
       .setReadMapped(true)
       .setCigar("5M")
       .setEnd(10L)
@@ -505,13 +530,13 @@ class ReferenceRegionSuite extends FunSuite {
 
   test("make a reference region for a variant or genotype") {
     val v = Variant.newBuilder()
-      .setContigName("chr")
+      .setReferenceName("chr")
       .setStart(1L)
       .setEnd(3L)
       .build()
     val g = Genotype.newBuilder()
       .setVariant(v)
-      .setContigName("chr")
+      .setReferenceName("chr")
       .setStart(1L)
       .setEnd(3L)
       .build()
@@ -526,13 +551,13 @@ class ReferenceRegionSuite extends FunSuite {
 
   test("make a reference region for a variant or genotype starting at VCF 0") {
     val v = Variant.newBuilder()
-      .setContigName("chr")
+      .setReferenceName("chr")
       .setStart(-1L)
       .setEnd(0L)
       .build()
     val g = Genotype.newBuilder()
       .setVariant(v)
-      .setContigName("chr")
+      .setReferenceName("chr")
       .setStart(-1L)
       .setEnd(0L)
       .build()
@@ -688,7 +713,7 @@ class ReferenceRegionSuite extends FunSuite {
       val feature = Feature.newBuilder()
         .setStart(10L)
         .setEnd(15L)
-        .setContigName("ctg")
+        .setReferenceName("ctg")
         .build()
       ReferenceRegion.stranded(feature)
     }
@@ -698,7 +723,7 @@ class ReferenceRegionSuite extends FunSuite {
     val feature = Feature.newBuilder()
       .setStart(10L)
       .setEnd(15L)
-      .setContigName("ctg")
+      .setReferenceName("ctg")
       .setStrand(Strand.FORWARD)
       .build()
     val rr = ReferenceRegion.stranded(feature)
@@ -712,7 +737,7 @@ class ReferenceRegionSuite extends FunSuite {
     val feature = Feature.newBuilder()
       .setStart(10L)
       .setEnd(15L)
-      .setContigName("ctg")
+      .setReferenceName("ctg")
       .setStrand(Strand.REVERSE)
       .build()
     val rr = ReferenceRegion.stranded(feature)

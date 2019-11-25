@@ -42,8 +42,8 @@ class ADAMContextTest(SparkTestCase):
         ac = ADAMContext(self.ss)
 
         reads = ac.loadIndexedBam(testFile,
-                                  [ReferenceRegion("chr2", 100L, 101L),
-                                   ReferenceRegion("3", 10L, 17L)])
+                                  [ReferenceRegion("chr2", 100, 101),
+                                   ReferenceRegion("3", 10, 17)])
 
         self.assertEqual(reads.toDF().count(), 2)
         
@@ -128,13 +128,25 @@ class ADAMContextTest(SparkTestCase):
         self.assertEqual(reads._jvmRdd.jrdd().count(), 6)
 
 
-    def test_load_contig_fragments(self):
+    def test_load_slices(self):
 
 
         testFile = self.resourceFile("HLA_DQB1_05_01_01_02.fa")
         ac = ADAMContext(self.ss)
         
-        reads = ac.loadContigFragments(testFile)
+        slices = ac.loadSlices(testFile, 10000)
 
-        self.assertEqual(reads.toDF().count(), 1)
-        self.assertEqual(reads._jvmRdd.jrdd().count(), 1)
+        self.assertEqual(slices.toDF().count(), 1)
+        self.assertEqual(slices._jvmRdd.jrdd().count(), 1)
+
+
+    def test_load_dna_sequences(self):
+
+
+        testFile = self.resourceFile("HLA_DQB1_05_01_01_02.fa")
+        ac = ADAMContext(self.ss)
+
+        sequences = ac.loadDnaSequences(testFile)
+
+        self.assertEqual(sequences.toDF().count(), 1)
+        self.assertEqual(sequences._jvmRdd.jrdd().count(), 1)

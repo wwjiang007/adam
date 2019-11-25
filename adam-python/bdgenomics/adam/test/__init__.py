@@ -48,7 +48,7 @@ class SparkTestCase(unittest.TestCase):
         f2 = open(file2)
 
         try:
-            self.assertEquals(f1.read(), f2.read())
+            self.assertEqual(f1.read(), f2.read())
         finally:
             f1.close()
             f2.close()
@@ -57,7 +57,10 @@ class SparkTestCase(unittest.TestCase):
     def setUp(self):
         self._old_sys_path = list(sys.path)
         class_name = self.__class__.__name__
-        self.ss = SparkSession.builder.master('local[4]').appName(class_name).getOrCreate()
+        self.ss = SparkSession.builder \
+                              .master('local[4]') \
+                              .appName(class_name) \
+                              .getOrCreate()
         self.sc = self.ss.sparkContext
 
         

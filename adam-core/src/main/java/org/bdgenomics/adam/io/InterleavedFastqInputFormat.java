@@ -54,11 +54,11 @@ public final class InterleavedFastqInputFormat extends FastqInputFormat {
      *
      * Reads over an input file and parses interleaved FASTQ read pairs into
      * a single Text output. This is then fed into the FastqConverter, which
-     * converts the single Text instance into two AlignmentRecords.
+     * converts the single Text instance into two Alignments.
      */
     private static class InterleavedFastqRecordReader extends FastqRecordReader {
 
-        private final String firstReadSuffix = ".+([/ +_]1| 1:[YN]:[02468]+:[0-9ACTG]+)$";
+        private final String firstReadSuffix = ".+([/ +_]1| 1:[YN]:[02468]+:[0-9ACTNG]+)$";
         private Pattern firstReadRegex;
 
         InterleavedFastqRecordReader(final Configuration conf,

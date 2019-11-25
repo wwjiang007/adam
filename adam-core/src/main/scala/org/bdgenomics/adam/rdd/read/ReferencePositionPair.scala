@@ -19,19 +19,18 @@ package org.bdgenomics.adam.rdd.read
 
 import com.esotericsoftware.kryo.{ Kryo, Serializer }
 import com.esotericsoftware.kryo.io.{ Input, Output }
-import org.bdgenomics.utils.misc.Logging
 import org.bdgenomics.adam.instrumentation.Timers.CreateReferencePositionPair
 import org.bdgenomics.adam.models.{
   ReferencePosition,
   ReferencePositionSerializer
 }
-import org.bdgenomics.adam.rich.RichAlignmentRecord
-import org.bdgenomics.formats.avro.AlignmentRecord
+import org.bdgenomics.adam.rich.RichAlignment
+import org.bdgenomics.formats.avro.Alignment
 
 /**
  * A singleton object for creating reference position pairs.
  */
-private[read] object ReferencePositionPair extends Logging {
+private[read] object ReferencePositionPair {
 
   /**
    * Extracts the reference positions from a bucket of reads from a single fragment.
@@ -46,10 +45,10 @@ private[read] object ReferencePositionPair extends Logging {
     val secondOfPair = (singleReadBucket.primaryMapped.filter(_.getReadInFragment == 1) ++
       singleReadBucket.unmapped.filter(_.getReadInFragment == 1)).toSeq
 
-    def getPos(r: AlignmentRecord): ReferencePosition = {
-      require(r.sequence != null, "AlignmentRecord sequence must not be null!")
+    def getPos(r: Alignment): ReferencePosition = {
+      require(r.sequence != null, "Alignment sequence must not be null!")
       if (r.getReadMapped) {
-        new RichAlignmentRecord(r).fivePrimeReferencePosition
+        new RichAlignment(r).fivePrimeReferencePosition
       } else {
         ReferencePosition(r.getSequence, 0L)
       }

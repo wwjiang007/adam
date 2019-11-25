@@ -4,7 +4,7 @@
   <parent>
     <groupId>org.bdgenomics.adam</groupId>
     <artifactId>adam-parent-spark2_2.11</artifactId>
-    <version>0.25.0-SNAPSHOT</version>
+    <version>0.30.0-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
@@ -101,15 +101,17 @@
               <mainClass>org.bdgenomics.adam.codegen.DumpSchemasToProduct</mainClass>
               <arguments>
                 <argument>org.bdgenomics.adam.sql</argument>
-                <argument>org.bdgenomics.formats.avro.AlignmentRecord</argument>
-                <argument>org.bdgenomics.formats.avro.Contig</argument>
+                <argument>org.bdgenomics.formats.avro.Alignment</argument>
                 <argument>org.bdgenomics.formats.avro.Dbxref</argument>
                 <argument>org.bdgenomics.formats.avro.Feature</argument>
                 <argument>org.bdgenomics.formats.avro.Fragment</argument>
                 <argument>org.bdgenomics.formats.avro.Genotype</argument>
-                <argument>org.bdgenomics.formats.avro.NucleotideContigFragment</argument>
                 <argument>org.bdgenomics.formats.avro.OntologyTerm</argument>
                 <argument>org.bdgenomics.formats.avro.ProcessingStep</argument>
+                <argument>org.bdgenomics.formats.avro.Reference</argument>
+                <argument>org.bdgenomics.formats.avro.Read</argument>
+                <argument>org.bdgenomics.formats.avro.Sequence</argument>
+                <argument>org.bdgenomics.formats.avro.Slice</argument>
                 <argument>org.bdgenomics.formats.avro.TranscriptEffect</argument>
                 <argument>org.bdgenomics.formats.avro.Variant</argument>
                 <argument>org.bdgenomics.formats.avro.VariantAnnotation</argument>
@@ -129,16 +131,15 @@
               <mainClass>org.bdgenomics.adam.codegen.DumpSchemasToProjectionEnums</mainClass>
               <arguments>
                 <argument>org.bdgenomics.adam.projections</argument>
-                <argument>org.bdgenomics.formats.avro.AlignmentRecord</argument>
-                <argument>org.bdgenomics.formats.avro.Contig</argument>
+                <argument>org.bdgenomics.formats.avro.Alignment</argument>
                 <argument>org.bdgenomics.formats.avro.Dbxref</argument>
                 <argument>org.bdgenomics.formats.avro.Feature</argument>
                 <argument>org.bdgenomics.formats.avro.Fragment</argument>
                 <argument>org.bdgenomics.formats.avro.Genotype</argument>
-                <argument>org.bdgenomics.formats.avro.NucleotideContigFragment</argument>
                 <argument>org.bdgenomics.formats.avro.OntologyTerm</argument>
                 <argument>org.bdgenomics.formats.avro.Read</argument>
-                <argument>org.bdgenomics.formats.avro.RecordGroup</argument>
+                <argument>org.bdgenomics.formats.avro.ReadGroup</argument>
+                <argument>org.bdgenomics.formats.avro.Reference</argument>
                 <argument>org.bdgenomics.formats.avro.Sample</argument>
                 <argument>org.bdgenomics.formats.avro.Sequence</argument>
                 <argument>org.bdgenomics.formats.avro.Slice</argument>
@@ -189,11 +190,6 @@
       <scope>compile</scope>
     </dependency>
     <dependency>
-      <groupId>org.hammerlab</groupId>
-      <artifactId>genomic-loci_${scala.version.prefix}</artifactId>
-      <scope>compile</scope>
-    </dependency>
-    <dependency>
       <groupId>com.esotericsoftware.kryo</groupId>
       <artifactId>kryo</artifactId>
       <scope>compile</scope>
@@ -238,6 +234,11 @@
       <scope>compile</scope>
     </dependency>
     <dependency>
+      <groupId>org.clapper</groupId>
+      <artifactId>grizzled-slf4j_${scala.version.prefix}</artifactId>
+      <scope>compile</scope>
+    </dependency>
+    <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-log4j12</artifactId>
       <scope>test</scope>
@@ -245,11 +246,6 @@
     <dependency>
       <groupId>org.apache.parquet</groupId>
       <artifactId>parquet-avro</artifactId>
-      <scope>compile</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.parquet</groupId>
-      <artifactId>parquet-scala_2.10</artifactId>
       <scope>compile</scope>
     </dependency>
     <dependency>

@@ -23,12 +23,15 @@ import htsjdk.samtools.{
   ValidationStringency
 }
 import java.io.{ File, FileNotFoundException }
+import java.lang.{ Long => JLong }
 import com.google.common.io.Files
 import org.apache.hadoop.fs.Path
-import org.apache.parquet.filter2.dsl.Dsl._
-import org.apache.parquet.filter2.predicate.FilterPredicate
+import org.apache.parquet.filter2.predicate.Operators.LongColumn
+import org.apache.parquet.filter2.predicate.{ FilterApi, FilterPredicate }
 import org.apache.parquet.hadoop.metadata.CompressionCodecName
 import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.SQLContext
+import org.bdgenomics.adam.converters.DefaultHeaderLines
 import org.bdgenomics.adam.models._
 import org.bdgenomics.adam.rdd.ADAMContext._
 import org.bdgenomics.adam.util.PhredUtils._
@@ -85,13 +88,21 @@ class ADAMContextSuite extends ADAMFunSuite {
       val noReturnType = sc.loadParquet(bamReadsAdamFile.getAbsolutePath)
     }
     //finally just make sure we did not break anything,we came might as well
-    val returnType: RDD[AlignmentRecord] = sc.loadParquet(bamReadsAdamFile.getAbsolutePath)
+    val returnType: RDD[Alignment] = sc.loadParquet(bamReadsAdamFile.getAbsolutePath)
     assert(manifest[returnType.type] != manifest[RDD[Nothing]])
   }
 
   sparkTest("can read a small .SAM file") {
     val path = testFile("small.sam")
     val reads = sc.loadAlignments(path)
+    assert(reads.rdd.count() === 20)
+    assert(reads.dataset.count === 20)
+    assert(reads.dataset.rdd.count === 20)
+  }
+
+  sparkTest("can read a small .SAM file with a bad header with lenient validation") {
+    val path = testFile("small.badheader.sam")
+    val reads = sc.loadAlignments(path, stringency = ValidationStringency.SILENT)
     assert(reads.rdd.count() === 20)
     assert(reads.dataset.count === 20)
     assert(reads.dataset.rdd.count === 20)
@@ -109,21 +120,21 @@ class ADAMContextSuite extends ADAMFunSuite {
     val referencePath = resourceUrl("artificial.fa").toString
     sc.hadoopConfiguration.set(CRAMInputFormat.REFERENCE_SOURCE_PATH_PROPERTY,
       referencePath)
-    val reads: RDD[AlignmentRecord] = sc.loadAlignments(path).rdd
+    val reads: RDD[Alignment] = sc.loadAlignments(path).rdd
     assert(reads.count() === 10)
   }
 
   sparkTest("can read a small .SAM with all attribute tag types") {
     val path = testFile("tags.sam")
-    val reads: RDD[AlignmentRecord] = sc.loadAlignments(path).rdd
+    val reads: RDD[Alignment] = sc.loadAlignments(path).rdd
     assert(reads.count() === 7)
   }
 
   sparkTest("can filter a .SAM file based on quality") {
     val path = testFile("small.sam")
-    val reads: RDD[AlignmentRecord] = sc.loadAlignments(path)
+    val reads: RDD[Alignment] = sc.loadAlignments(path)
       .rdd
-      .filter(a => (a.getReadMapped && a.getMapq > 30))
+      .filter(a => (a.getReadMapped && a.getMappingQuality > 30))
     assert(reads.count() === 18)
   }
 
@@ -172,10 +183,10 @@ class ADAMContextSuite extends ADAMFunSuite {
     assert(annot.count == 369)
     val arr = annot.collect
 
-    val first = arr.find(f => f.getContigName == "chr1" && f.getStart == 14415L && f.getEnd == 14499L).get
+    val first = arr.find(f => f.getReferenceName == "chr1" && f.getStart == 14415L && f.getEnd == 14499L).get
     assert(first.getName === "gn|DDX11L1;gn|RP11-34P13.2;ens|ENSG00000223972;ens|ENSG00000227232;vega|OTTHUMG00000000958;vega|OTTHUMG00000000961")
 
-    val last = arr.find(f => f.getContigName == "chrY" && f.getStart == 27190031L && f.getEnd == 27190210L).get
+    val last = arr.find(f => f.getReferenceName == "chrY" && f.getStart == 27190031L && f.getEnd == 27190210L).get
     assert(last.getName === "gn|BPY2C;ccds|CCDS44030;ens|ENSG00000185894;vega|OTTHUMG00000045199")
   }
 
@@ -192,11 +203,11 @@ class ADAMContextSuite extends ADAMFunSuite {
     val gts = sc.loadGenotypes(path)
     val vcRdd = gts.toVariantContexts
     val vcs = vcRdd.rdd.collect.sortBy(_.position)
-    assert(vcs.size === 6)
+    assert(vcs.length === 6)
 
     val vc = vcs.head
     val variant = vc.variant.variant
-    assert(variant.getContigName === "1")
+    assert(variant.getReferenceName === "1")
     assert(variant.getStart === 14396L)
     assert(variant.getEnd === 14400L)
     assert(variant.getReferenceAllele === "CTGT")
@@ -306,8 +317,8 @@ class ADAMContextSuite extends ADAMFunSuite {
         assert(reads.rdd.filter(_.getReadInFragment == 1).count === 2)
       }
 
-      assert(reads.rdd.collect.forall(_.getSequence.toString.length === 250))
-      assert(reads.rdd.collect.forall(_.getQual.toString.length === 250))
+      assert(reads.rdd.collect.forall(_.getSequence.length === 250))
+      assert(reads.rdd.collect.forall(_.getQualityScores.length === 250))
     }
   }
 
@@ -340,7 +351,7 @@ class ADAMContextSuite extends ADAMFunSuite {
       }
 
       assert(reads.rdd.collect.forall(_.getSequence.toString.length === 250))
-      assert(reads.rdd.collect.forall(_.getQual.toString.length === 250))
+      assert(reads.rdd.collect.forall(_.getQualityScores.toString.length === 250))
     }
   }
 
@@ -355,7 +366,8 @@ class ADAMContextSuite extends ADAMFunSuite {
     val loc = tmpLocation()
     variants.saveAsParquet(loc, 1024, 1024) // force more than one row group (block)
 
-    val pred: FilterPredicate = (LongColumn("start") === 16097631L)
+    val pred: FilterPredicate = FilterApi.eq[JLong, LongColumn](
+      FilterApi.longColumn("start"), 16097631L)
     // the following only reads one row group
     val adamVariants = sc.loadParquetVariants(loc, optPredicate = Some(pred))
     assert(adamVariants.rdd.count === 1)
@@ -390,35 +402,58 @@ class ADAMContextSuite extends ADAMFunSuite {
 
   sparkTest("read a HLA fasta from GRCh38") {
     val inputPath = testFile("HLA_DQB1_05_01_01_02.fa")
-    val gRdd = sc.loadFasta(inputPath, 10000L)
-    assert(gRdd.sequences.records.size === 1)
-    assert(gRdd.sequences.records.head.name === "HLA-DQB1*05:01:01:02")
-    val fragments = gRdd.rdd.collect
-    assert(fragments.size === 1)
-    assert(fragments.head.getContigName === "HLA-DQB1*05:01:01:02")
+    val gRdd = sc.loadFastaDna(inputPath)
+
+    // see https://github.com/bigdatagenomics/adam/issues/1894
+    val withSequenceDictionary = gRdd.createSequenceDictionary()
+    assert(withSequenceDictionary.sequences.records.size === 1)
+    assert(withSequenceDictionary.sequences.records.head.name === "HLA-DQB1*05:01:01:02")
+
+    val sequences = gRdd.rdd.collect
+    assert(sequences.length === 1)
+    assert(sequences.head.getName === "HLA-DQB1*05:01:01:02")
   }
 
   sparkTest("read a gzipped fasta file") {
     val inputPath = testFile("chr20.250k.fa.gz")
-    val contigFragments = sc.loadFasta(inputPath, 10000L)
-      .transform((rdd: RDD[NucleotideContigFragment]) => {
-        rdd.sortBy(_.getIndex.toInt)
-      })
-    assert(contigFragments.rdd.count() === 26)
-    val first: NucleotideContigFragment = contigFragments.rdd.first()
-    assert(first.getContigName === null)
+    val slices = sc.loadFastaDna(inputPath, 10000L)
+      .rdd
+      .sortBy(_.getIndex.toInt)
+
+    assert(slices.count() === 26)
+    val first = slices.first()
+    assert(first.getName === null)
     assert(first.getDescription === "gi|224384749|gb|CM000682.1| Homo sapiens chromosome 20, GRCh37 primary reference assembly")
     assert(first.getIndex === 0)
     assert(first.getSequence.length === 10000)
     assert(first.getStart === 0L)
     assert(first.getEnd === 10000L)
-    assert(first.getFragments === 26)
+    assert(first.getSlices === 26)
 
     // 250k file actually has 251930 bases
-    val last: NucleotideContigFragment = contigFragments.rdd.collect().last
+    val last = slices.collect().last
     assert(last.getIndex === 25)
     assert(last.getStart === 250000L)
     assert(last.getEnd === 251930L)
+  }
+
+  sparkTest("read a fasta file with comments, gaps, and translation stops") {
+    val inputPath = testFile("legacy.fa")
+    val sequences = sc.loadFastaProtein(inputPath)
+      .rdd
+      .sortBy(_.getLength)
+      .collect
+
+    assert(sequences.length === 3)
+
+    assert(sequences(0).getLength === 148)
+    assert(!sequences(0).getSequence.contains("*"))
+
+    assert(sequences(1).getLength === 229)
+    assert(!sequences(1).getSequence.contains("*"))
+
+    assert(sequences(2).getLength === 284)
+    assert(sequences(2).getSequence.contains("-"))
   }
 
   sparkTest("loadIndexedBam with 1 ReferenceRegion") {
@@ -626,8 +661,8 @@ class ADAMContextSuite extends ADAMFunSuite {
     assert(sc.filesAreQueryGrouped(samFile))
     val fragments = sc.loadFragments(samFile)
     assert(fragments.rdd.count === 3)
-    val reads = fragments.toReads
-    assert(reads.rdd.count === 6)
+    val alignments = fragments.toAlignments
+    assert(alignments.rdd.count === 6)
   }
 
   sparkTest("load query grouped sam as fragments") {
@@ -635,8 +670,8 @@ class ADAMContextSuite extends ADAMFunSuite {
     assert(sc.filesAreQueryGrouped(samFile))
     val fragments = sc.loadFragments(samFile)
     assert(fragments.rdd.count === 3)
-    val reads = fragments.toReads
-    assert(reads.rdd.count === 6)
+    val alignments = fragments.toAlignments
+    assert(alignments.rdd.count === 6)
   }
 
   sparkTest("load paired fastq") {
@@ -725,11 +760,11 @@ class ADAMContextSuite extends ADAMFunSuite {
     val sd = sc.loadSequenceDictionary(sdPath)
 
     val path = testFile("gencode.v7.annotation.trunc10.bed") // uses "chr1"
-    val featureRdd = sc.sc.loadFeatures(path, optSequenceDictionary = Some(sd))
-    val features: RDD[Feature] = featureRdd.rdd
+    val featureDs = sc.sc.loadFeatures(path, optSequenceDictionary = Some(sd))
+    val features: RDD[Feature] = featureDs.rdd
     assert(features.count === 10)
 
-    val sequences = featureRdd.sequences
+    val sequences = featureDs.sequences
     assert(sequences.records.size === 93)
     assert(sequences("chr1").isDefined)
     assert(sequences("chr1").get.length === 249250621L)
@@ -742,11 +777,11 @@ class ADAMContextSuite extends ADAMFunSuite {
     val sd = sc.loadSequenceDictionary(sdPath)
 
     val path = testFile("dvl1.200.bed") // uses "1"
-    val featureRdd = sc.sc.loadFeatures(path, optSequenceDictionary = Some(sd))
-    val features: RDD[Feature] = featureRdd.rdd
+    val featureDs = sc.sc.loadFeatures(path, optSequenceDictionary = Some(sd))
+    val features: RDD[Feature] = featureDs.rdd
     assert(features.count === 197)
 
-    val sequences = featureRdd.sequences
+    val sequences = featureDs.sequences
     assert(sequences.records.size === 93)
     assert(sequences("chr1").isDefined)
     assert(sequences("chr1").get.length === 249250621L)
@@ -787,5 +822,285 @@ class ADAMContextSuite extends ADAMFunSuite {
     assert(secondPg.head.getProgramName === "myProg")
     assert(secondPg.head.getCommandLine === "\"myProg 456\"")
     assert(secondPg.head.getVersion === "1.0.0")
+  }
+
+  sparkTest("load alignments from data frame") {
+    val path = testFile("bqsr1-r1.fq")
+    val alignments = sc.loadAlignments(path)
+    val outputDir = tmpLocation()
+    alignments.saveAsParquet(outputDir)
+    val df = SQLContext.getOrCreate(sc).read.parquet(outputDir)
+    val reloaded = sc.loadAlignments(df)
+    assert(reloaded.sequences.isEmpty)
+    assert(reloaded.readGroups.isEmpty)
+    assert(reloaded.processingSteps.isEmpty)
+    assert(reloaded.rdd.collect().deep == alignments.rdd.collect().deep)
+  }
+
+  sparkTest("load features from data frame") {
+    val path = testFile("dvl1.200.bed")
+    val features = sc.loadFeatures(path)
+    val outputDir = tmpLocation()
+    features.saveAsParquet(outputDir)
+    val df = SQLContext.getOrCreate(sc).read.parquet(outputDir)
+    val reloaded = sc.loadFeatures(df)
+    assert(reloaded.sequences.isEmpty)
+    assert(reloaded.samples.isEmpty)
+    assert(reloaded.rdd.collect().deep == features.rdd.collect().deep)
+  }
+
+  sparkTest("load fragments from data frame") {
+    val path = testFile("sample1.query.sam")
+    val fragments = sc.loadFragments(path)
+    val outputDir = tmpLocation()
+    fragments.saveAsParquet(outputDir)
+    val df = SQLContext.getOrCreate(sc).read.parquet(outputDir)
+    val reloaded = sc.loadFragments(df)
+    assert(reloaded.sequences.isEmpty)
+    assert(reloaded.readGroups.isEmpty)
+    assert(reloaded.processingSteps.isEmpty)
+    assert(reloaded.rdd.collect().deep == fragments.rdd.collect().deep)
+  }
+
+  sparkTest("load genotypes from data frame with default header lines") {
+    val path = testFile("small.vcf")
+    val genotypes = sc.loadGenotypes(path)
+    val outputDir = tmpLocation()
+    genotypes.saveAsParquet(outputDir)
+    val df = SQLContext.getOrCreate(sc).read.parquet(outputDir)
+    val reloaded = sc.loadGenotypes(df)
+    assert(reloaded.sequences.isEmpty)
+    assert(reloaded.samples.isEmpty)
+    assert(reloaded.headerLines === DefaultHeaderLines.allHeaderLines)
+    assert(reloaded.rdd.collect().deep == genotypes.rdd.collect().deep)
+  }
+
+  sparkTest("load genotypes from data frame with empty header lines") {
+    val path = testFile("small.vcf")
+    val genotypes = sc.loadGenotypes(path)
+    val outputDir = tmpLocation()
+    genotypes.saveAsParquet(outputDir)
+    val df = SQLContext.getOrCreate(sc).read.parquet(outputDir)
+    val reloaded = sc.loadGenotypes(df, genotypes.sequences, genotypes.samples, headerLines = Seq.empty)
+    assert(reloaded.sequences == genotypes.sequences)
+    assert(reloaded.samples == genotypes.samples)
+    assert(reloaded.headerLines.isEmpty)
+    assert(reloaded.rdd.collect().deep == genotypes.rdd.collect().deep)
+  }
+
+  sparkTest("load reads from data frame") {
+    val path = testFile("bqsr1-r1.fq")
+    val reads = sc.loadAlignments(path).toReads()
+    val outputDir = tmpLocation()
+    reads.saveAsParquet(outputDir)
+    val df = SQLContext.getOrCreate(sc).read.parquet(outputDir)
+    val reloaded = sc.loadReads(df)
+    assert(reloaded.sequences.isEmpty)
+    assert(reloaded.rdd.collect().deep == reads.rdd.collect().deep)
+  }
+
+  sparkTest("load sequences from data frame") {
+    val path = testFile("gencode.v19.pc_transcripts.250k.fa.gz")
+    val sequences = sc.loadDnaSequences(path)
+    val outputDir = tmpLocation()
+    sequences.saveAsParquet(outputDir)
+    val df = SQLContext.getOrCreate(sc).read.parquet(outputDir)
+    val reloaded = sc.loadSequences(df)
+    assert(reloaded.sequences.isEmpty)
+    assert(reloaded.rdd.collect().deep == sequences.rdd.collect().deep)
+  }
+
+  sparkTest("load slices from data frame") {
+    val path = testFile("chr20.250k.fa.gz")
+    val slices = sc.loadSlices(path, maximumLength = 100L)
+    val outputDir = tmpLocation()
+    slices.saveAsParquet(outputDir)
+    val df = SQLContext.getOrCreate(sc).read.parquet(outputDir)
+    val reloaded = sc.loadSlices(df)
+    assert(reloaded.sequences.isEmpty)
+    assert(reloaded.rdd.collect().deep == slices.rdd.collect().deep)
+  }
+
+  sparkTest("load variant contexts from data frame with default header lines") {
+    val path = testFile("small.vcf")
+    val vcs = sc.loadVcf(path)
+    val outputDir = tmpLocation()
+    vcs.saveAsParquet(outputDir)
+    val df = SQLContext.getOrCreate(sc).read.parquet(outputDir)
+    val reloaded = sc.loadVariantContexts(df)
+    assert(reloaded.sequences.isEmpty)
+    assert(reloaded.samples.isEmpty)
+    assert(reloaded.headerLines == DefaultHeaderLines.allHeaderLines)
+    // note: weaker assertion than other types, vc models don't equal each other
+    assert(reloaded.rdd.collect().length == vcs.rdd.collect().length)
+  }
+
+  sparkTest("load variant contexts from data frame with empty header lines") {
+    val path = testFile("small.vcf")
+    val vcs = sc.loadVcf(path)
+    val outputDir = tmpLocation()
+    vcs.saveAsParquet(outputDir)
+    val df = SQLContext.getOrCreate(sc).read.parquet(outputDir)
+    val reloaded = sc.loadVariantContexts(df, vcs.sequences, vcs.samples, headerLines = Seq.empty)
+    assert(reloaded.sequences == vcs.sequences)
+    assert(reloaded.samples == vcs.samples)
+    assert(reloaded.headerLines.isEmpty)
+    assert(reloaded.rdd.collect().length == vcs.rdd.collect().length)
+  }
+
+  sparkTest("load variants from data frame with default header lines") {
+    val path = testFile("gvcf_dir/gvcf_multiallelic.g.vcf")
+    val variants = sc.loadVcf(path).toVariants()
+    val outputDir = tmpLocation()
+    variants.saveAsParquet(outputDir)
+    val df = SQLContext.getOrCreate(sc).read.parquet(outputDir)
+    val reloaded = sc.loadVariants(df)
+    assert(reloaded.sequences.isEmpty)
+    assert(reloaded.headerLines === DefaultHeaderLines.allHeaderLines)
+    assert(reloaded.rdd.collect().deep == variants.rdd.collect().deep)
+  }
+
+  sparkTest("load variants from data frame with empty header lines") {
+    val path = testFile("gvcf_dir/gvcf_multiallelic.g.vcf")
+    val variants = sc.loadVcf(path).toVariants()
+    val outputDir = tmpLocation()
+    variants.saveAsParquet(outputDir)
+    val df = SQLContext.getOrCreate(sc).read.parquet(outputDir)
+    val reloaded = sc.loadVariants(df, variants.sequences, headerLines = Seq.empty)
+    assert(reloaded.sequences == variants.sequences)
+    assert(reloaded.headerLines.isEmpty)
+    assert(reloaded.rdd.collect().deep == variants.rdd.collect().deep)
+  }
+
+  sparkTest("load alignments with metadata from data frame") {
+    val path = testFile("bqsr1-r1.fq")
+    val alignments = sc.loadAlignments(path)
+    val outputDir = tmpLocation()
+    alignments.saveAsParquet(outputDir)
+    val df = SQLContext.getOrCreate(sc).read.parquet(outputDir)
+    val reloaded = sc.loadAlignments(df, outputDir)
+    assert(reloaded.sequences == alignments.sequences)
+    assert(reloaded.readGroups == alignments.readGroups)
+    assert(reloaded.processingSteps == alignments.processingSteps)
+    assert(reloaded.rdd.collect().deep == alignments.rdd.collect().deep)
+  }
+
+  sparkTest("load features with metadata from data frame") {
+    val path = testFile("dvl1.200.bed")
+    val features = sc.loadFeatures(path)
+    val outputDir = tmpLocation()
+    features.saveAsParquet(outputDir)
+    val df = SQLContext.getOrCreate(sc).read.parquet(outputDir)
+    val reloaded = sc.loadFeatures(df, outputDir)
+    assert(reloaded.sequences == features.sequences)
+    assert(reloaded.samples.isEmpty)
+    assert(reloaded.rdd.collect().deep == features.rdd.collect().deep)
+  }
+
+  sparkTest("load fragments with metadata from data frame") {
+    val path = testFile("sample1.query.sam")
+    val fragments = sc.loadFragments(path)
+    val outputDir = tmpLocation()
+    fragments.saveAsParquet(outputDir)
+    val df = SQLContext.getOrCreate(sc).read.parquet(outputDir)
+    val reloaded = sc.loadFragments(df, outputDir)
+    assert(reloaded.sequences == fragments.sequences)
+    assert(reloaded.readGroups == fragments.readGroups)
+    assert(reloaded.processingSteps == fragments.processingSteps)
+    assert(reloaded.rdd.collect().deep == fragments.rdd.collect().deep)
+  }
+
+  sparkTest("load genotypes with metadata from data frame") {
+    val path = testFile("small.vcf")
+    val gts = sc.loadGenotypes(path)
+    val outputDir = tmpLocation()
+    gts.saveAsParquet(outputDir)
+    val df = SQLContext.getOrCreate(sc).read.parquet(outputDir)
+    val reloaded = sc.loadGenotypes(df, outputDir)
+    assert(reloaded.sequences == gts.sequences)
+    assert(reloaded.headerLines.toSet == gts.headerLines.toSet)
+    assert(reloaded.samples == gts.samples)
+    assert(reloaded.rdd.collect().deep == gts.rdd.collect().deep)
+  }
+
+  sparkTest("load variant contexts with metadata from data frame") {
+    val path = testFile("small.vcf")
+    val vcs = sc.loadVcf(path)
+    val outputDir = tmpLocation()
+    vcs.saveAsParquet(outputDir)
+    val df = SQLContext.getOrCreate(sc).read.parquet(outputDir)
+    val reloaded = sc.loadVariantContexts(df, outputDir)
+    assert(reloaded.sequences == vcs.sequences)
+    assert(reloaded.headerLines.toSet == vcs.headerLines.toSet)
+    assert(reloaded.samples == vcs.samples)
+    assert(reloaded.rdd.collect().length == vcs.rdd.collect().length)
+  }
+
+  sparkTest("load variants with metadata from data frame") {
+    val path = testFile("gvcf_dir/gvcf_multiallelic.g.vcf")
+    val variants = sc.loadVcf(path).toVariants()
+    val outputDir = tmpLocation()
+    variants.saveAsParquet(outputDir)
+    val df = SQLContext.getOrCreate(sc).read.parquet(outputDir)
+    val reloaded = sc.loadVariants(df, outputDir)
+    assert(reloaded.sequences == variants.sequences)
+    assert(reloaded.headerLines.toSet == variants.headerLines.toSet)
+    assert(reloaded.rdd.collect().deep == variants.rdd.collect().deep)
+  }
+
+  sparkTest("read a fasta file with short sequences as sequences") {
+    val inputPath = testFile("trinity.fa")
+    val sequences = sc.loadFastaDna(inputPath)
+    assert(sequences.rdd.count === 5)
+  }
+
+  sparkTest("read a fasta file with long sequences as sequences") {
+    val inputPath = testFile("chr20.250k.fa.gz")
+    val sequences = sc.loadFastaDna(inputPath)
+    assert(sequences.rdd.count === 1)
+    val sequence = sequences.rdd.first()
+    assert(sequence.getName === null)
+    assert(sequence.getDescription === "gi|224384749|gb|CM000682.1| Homo sapiens chromosome 20, GRCh37 primary reference assembly")
+    assert(sequence.getAlphabet === org.bdgenomics.formats.avro.Alphabet.DNA)
+    assert(sequence.getSequence.length === 251930)
+    assert(sequence.getLength === 251930L)
+  }
+
+  sparkTest("read a fasta file with short sequences as slices") {
+    val inputPath = testFile("trinity.fa")
+    val slices = sc.loadFastaDna(inputPath, 10000L)
+    assert(slices.rdd.count === 5)
+  }
+
+  sparkTest("read a fasta file with long sequences as slices") {
+    val inputPath = testFile("chr20.250k.fa.gz")
+    val slices = sc.loadFastaDna(inputPath, 10000L)
+    slices.transform((rdd: RDD[Slice]) => rdd.sortBy(_.getIndex.toInt))
+    assert(slices.rdd.count() === 26)
+
+    val first = slices.rdd.first()
+    assert(first.getName === null)
+    assert(first.getDescription === "gi|224384749|gb|CM000682.1| Homo sapiens chromosome 20, GRCh37 primary reference assembly")
+    assert(first.getAlphabet === org.bdgenomics.formats.avro.Alphabet.DNA)
+    assert(first.getSequence.length === 10000)
+    assert(first.getLength === 10000L)
+    assert(first.getStart === 0L)
+    assert(first.getEnd === 10000L)
+    assert(first.getIndex === 0)
+    assert(first.getSlices === 26)
+    assert(first.getTotalLength === 251930L)
+
+    // 250k file actually has 251930 bases
+    val last = slices.rdd.collect().last
+    assert(last.getName === null)
+    assert(last.getDescription === "gi|224384749|gb|CM000682.1| Homo sapiens chromosome 20, GRCh37 primary reference assembly")
+    assert(last.getAlphabet === org.bdgenomics.formats.avro.Alphabet.DNA)
+    assert(last.getSequence.length === 1930)
+    assert(last.getLength === 1930L)
+    assert(last.getStart === 250000L)
+    assert(last.getEnd === 251930L)
+    assert(last.getIndex === 25)
+    assert(last.getSlices === 26)
+    assert(last.getTotalLength === 251930L)
   }
 }

@@ -17,19 +17,19 @@
  */
 package org.bdgenomics.adam.converters
 
+import grizzled.slf4j.Logging
 import htsjdk.samtools.{
   SAMReadGroupRecord,
   SAMRecord,
   SAMUtils
 }
-import org.bdgenomics.utils.misc.Logging
 import org.bdgenomics.adam.models.Attribute
 import org.bdgenomics.adam.util.AttributeUtils
-import org.bdgenomics.formats.avro.AlignmentRecord
+import org.bdgenomics.formats.avro.Alignment
 import scala.collection.JavaConverters._
 
 /**
- * Helper class for converting SAMRecords into AlignmentRecords.
+ * Helper class for converting SAMRecords into Alignments.
  */
 private[adam] class SAMRecordConverter extends Serializable with Logging {
 
@@ -40,7 +40,7 @@ private[adam] class SAMRecordConverter extends Serializable with Logging {
    * ADAM, we have promoted some of these fields to "primary" fields, so that we
    * can more efficiently access them. These include the MD tag, which describes
    * substitutions against the reference; the OQ tag, which describes the
-   * original read base qualities; and the OP and OC tags, which describe the
+   * original read base quality scores; and the OP and OC tags, which describe the
    * original read alignment position and CIGAR.
    *
    * @param attrTag Tag name to check.
@@ -55,12 +55,12 @@ private[adam] class SAMRecordConverter extends Serializable with Logging {
   }
 
   /**
-   * Converts a SAM record into an Avro AlignmentRecord.
+   * Converts a SAM record into an Avro Alignment.
    *
    * @param samRecord Record to convert.
    * @return Returns the original record converted into Avro.
    */
-  def convert(samRecord: SAMRecord): AlignmentRecord = {
+  def convert(samRecord: SAMRecord): Alignment = {
     try {
       val cigar: String = samRecord.getCigarString
       val startTrim = if (cigar == "*") {
@@ -82,36 +82,36 @@ private[adam] class SAMRecordConverter extends Serializable with Logging {
         0
       }
 
-      val builder: AlignmentRecord.Builder = AlignmentRecord.newBuilder
+      val builder: Alignment.Builder = Alignment.newBuilder
         .setReadName(samRecord.getReadName)
         .setSequence(samRecord.getReadString)
         .setCigar(cigar)
         .setBasesTrimmedFromStart(startTrim)
         .setBasesTrimmedFromEnd(endTrim)
-        .setOrigQual(SAMUtils.phredToFastq(samRecord.getOriginalBaseQualities))
+        .setOriginalQualityScores(SAMUtils.phredToFastq(samRecord.getOriginalBaseQualities))
 
-      // if the quality string is "*", then we null it in the record
-      // or, in other words, we only set the quality string if it is not "*"
-      val qual = samRecord.getBaseQualityString
-      if (qual != "*") {
-        builder.setQual(qual)
+      // if the quality scores string is "*", then we null it in the record
+      // or, in other words, we only set the quality scores if it is not "*"
+      val qualityScores = samRecord.getBaseQualityString
+      if (qualityScores != "*") {
+        builder.setQualityScores(qualityScores)
       }
 
       // Only set the reference information if the read is aligned, matching the mate reference
       // This prevents looking up a -1 in the sequence dictionary
       val readReference: Int = samRecord.getReferenceIndex
       if (readReference != SAMRecord.NO_ALIGNMENT_REFERENCE_INDEX) {
-        builder.setContigName(samRecord.getReferenceName)
+        builder.setReferenceName(samRecord.getReferenceName)
 
         // set read alignment flag
         val start: Int = samRecord.getAlignmentStart
-        assert(start != 0, "Start cannot equal 0 if contig is set.")
+        assert(start != 0, "Start cannot equal 0 if reference is set.")
         builder.setStart(start - 1L)
 
         // set OP and OC flags, if applicable
         if (samRecord.getAttribute("OP") != null) {
-          builder.setOldPosition(samRecord.getIntegerAttribute("OP").toLong - 1)
-          builder.setOldCigar(samRecord.getStringAttribute("OC"))
+          builder.setOriginalStart(samRecord.getIntegerAttribute("OP").toLong - 1)
+          builder.setOriginalCigar(samRecord.getStringAttribute("OC"))
         }
 
         val end = start.toLong - 1 + samRecord.getCigar.getReferenceLength
@@ -120,7 +120,7 @@ private[adam] class SAMRecordConverter extends Serializable with Logging {
         val mapq: Int = samRecord.getMappingQuality
 
         if (mapq != SAMRecord.UNKNOWN_MAPPING_QUALITY) {
-          builder.setMapq(mapq)
+          builder.setMappingQuality(mapq)
         }
 
       }
@@ -146,7 +146,7 @@ private[adam] class SAMRecordConverter extends Serializable with Logging {
       val mateReference: Int = samRecord.getMateReferenceIndex
 
       if (mateReference != SAMRecord.NO_ALIGNMENT_REFERENCE_INDEX) {
-        builder.setMateContigName(samRecord.getMateReferenceName)
+        builder.setMateReferenceName(samRecord.getMateReferenceName)
 
         val mateStart = samRecord.getMateAlignmentStart
         if (mateStart > 0) {
@@ -187,7 +187,7 @@ private[adam] class SAMRecordConverter extends Serializable with Logging {
       var tags = List[Attribute]()
       val tlen = samRecord.getInferredInsertSize
       if (tlen != 0) {
-        builder.setInferredInsertSize(tlen.toLong)
+        builder.setInsertSize(tlen.toLong)
       }
       if (samRecord.getAttributes != null) {
         samRecord.getAttributes.asScala.foreach {
@@ -205,14 +205,14 @@ private[adam] class SAMRecordConverter extends Serializable with Logging {
 
       val recordGroup: SAMReadGroupRecord = samRecord.getReadGroup
       if (recordGroup != null) {
-        builder.setRecordGroupName(recordGroup.getReadGroupId)
-          .setRecordGroupSample(recordGroup.getSample)
+        builder.setReadGroupId(recordGroup.getReadGroupId)
+          .setReadGroupSampleId(recordGroup.getSample)
       }
 
       builder.build
     } catch {
       case t: Throwable => {
-        log.error("Conversion of read: " + samRecord + " failed.")
+        error("Conversion of read: " + samRecord + " failed.")
         throw t
       }
     }

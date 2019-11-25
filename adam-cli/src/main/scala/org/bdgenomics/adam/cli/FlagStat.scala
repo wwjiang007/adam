@@ -20,7 +20,7 @@ package org.bdgenomics.adam.cli
 import htsjdk.samtools.ValidationStringency
 import org.apache.hadoop.fs.{ FileSystem, Path }
 import org.apache.spark.SparkContext
-import org.bdgenomics.adam.projections.{ AlignmentRecordField, Projection }
+import org.bdgenomics.adam.projections.{ AlignmentField, Projection }
 import org.bdgenomics.adam.rdd.ADAMContext._
 import org.bdgenomics.utils.cli._
 import org.kohsuke.args4j.{ Argument, Option ⇒ Args4jOption }
@@ -36,11 +36,11 @@ object FlagStat extends BDGCommandCompanion {
 
 class FlagStatArgs extends Args4jBase {
   @Argument(required = true, metaVar = "INPUT", usage = "The ADAM data to return stats for", index = 0)
-  val inputPath: String = null
+  var inputPath: String = null
   @Args4jOption(required = false, name = "-o", usage = "Optionally write the stats to this file.")
-  val outputPath: String = null
+  var outputPath: String = null
   @Args4jOption(required = false, name = "-stringency", usage = "Set the parsing stringency: SILENT, LENIENT, STRICT.")
-  val stringency: String = "SILENT"
+  var stringency: String = "SILENT"
 }
 
 class FlagStat(protected val args: FlagStatArgs) extends BDGSparkCommand[FlagStatArgs] {
@@ -49,20 +49,20 @@ class FlagStat(protected val args: FlagStatArgs) extends BDGSparkCommand[FlagSta
   def run(sc: SparkContext): Unit = {
 
     val projection = Projection(
-      AlignmentRecordField.readMapped,
-      AlignmentRecordField.mateMapped,
-      AlignmentRecordField.readPaired,
-      AlignmentRecordField.contigName,
-      AlignmentRecordField.mateContigName,
-      AlignmentRecordField.primaryAlignment,
-      AlignmentRecordField.duplicateRead,
-      AlignmentRecordField.readMapped,
-      AlignmentRecordField.mateMapped,
-      AlignmentRecordField.readInFragment,
-      AlignmentRecordField.properPair,
-      AlignmentRecordField.mapq,
-      AlignmentRecordField.failedVendorQualityChecks,
-      AlignmentRecordField.supplementaryAlignment
+      AlignmentField.readMapped,
+      AlignmentField.mateMapped,
+      AlignmentField.readPaired,
+      AlignmentField.referenceName,
+      AlignmentField.mateReferenceName,
+      AlignmentField.primaryAlignment,
+      AlignmentField.duplicateRead,
+      AlignmentField.readMapped,
+      AlignmentField.mateMapped,
+      AlignmentField.readInFragment,
+      AlignmentField.properPair,
+      AlignmentField.mappingQuality,
+      AlignmentField.failedVendorQualityChecks,
+      AlignmentField.supplementaryAlignment
     )
 
     val stringency = ValidationStringency.valueOf(args.stringency)

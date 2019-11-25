@@ -18,42 +18,42 @@
 package org.bdgenomics.adam.rdd.fragment
 
 import java.io.OutputStream
+import grizzled.slf4j.Logging
 import org.apache.hadoop.conf.Configuration
-import org.bdgenomics.adam.converters.AlignmentRecordConverter
+import org.bdgenomics.adam.converters.AlignmentConverter
 import org.bdgenomics.adam.rdd.{ InFormatter, InFormatterCompanion }
 import org.bdgenomics.adam.sql.{ Fragment => FragmentProduct }
 import org.bdgenomics.formats.avro.Fragment
-import org.bdgenomics.utils.misc.Logging
 
 /**
  * InFormatter companion that creates an InFormatter that writes Bowtie tab5 format.
  */
-object Tab5InFormatter extends InFormatterCompanion[Fragment, FragmentProduct, FragmentRDD, Tab5InFormatter] {
+object Tab5InFormatter extends InFormatterCompanion[Fragment, FragmentProduct, FragmentDataset, Tab5InFormatter] {
 
   /**
    * Builds an Tab5InFormatter to write Bowtie tab5 format.
    *
-   * @param gRdd GenomicRDD of Fragments. Used to get HadoopConfiguration.
+   * @param gDataset GenomicDataset of Fragments. Used to get HadoopConfiguration.
    * @return Returns a new Tab6InFormatter.
    */
-  def apply(gRdd: FragmentRDD): Tab5InFormatter = {
-    new Tab5InFormatter(gRdd.rdd.context.hadoopConfiguration)
+  def apply(gDataset: FragmentDataset): Tab5InFormatter = {
+    new Tab5InFormatter(gDataset.rdd.context.hadoopConfiguration)
   }
 }
 
 class Tab5InFormatter private (
-    conf: Configuration) extends InFormatter[Fragment, FragmentProduct, FragmentRDD, Tab5InFormatter] with Logging {
+    conf: Configuration) extends InFormatter[Fragment, FragmentProduct, FragmentDataset, Tab5InFormatter] with Logging {
 
   protected val companion = Tab5InFormatter
   private val newLine = "\n".getBytes
-  private val converter = new AlignmentRecordConverter
-  private val writeOriginalQualities = conf.getBoolean(FragmentRDD.WRITE_ORIGINAL_QUALITIES, false)
+  private val converter = new AlignmentConverter
+  private val writeOriginalQualityScores = conf.getBoolean(FragmentDataset.WRITE_ORIGINAL_QUALITY_SCORES, false)
 
   /**
-   * Writes alignment records to an output stream in Bowtie tab5 format.
+   * Writes alignments to an output stream in Bowtie tab5 format.
    *
-   * In Bowtie tab5 format, each alignment record or pair is on a single line.
-   * An unpaired alignment record line is [name]\t[seq]\t[qual]\n.
+   * In Bowtie tab5 format, each alignment or pair is on a single line.
+   * An unpaired alignment line is [name]\t[seq]\t[qual]\n.
    * A paired-end read line is [name]\t[seq1]\t[qual1]\t[seq2]\t[qual2]\n.
    *
    * The read name for a paired-end read line is the name of the first
@@ -70,22 +70,21 @@ class Tab5InFormatter private (
         reads
       } else {
         if (reads.size > 2) {
-          log.warn("More than two reads for %s. Taking first 2.".format(frag))
+          warn("More than two reads for %s. Taking first 2.".format(frag))
         }
         reads.take(2)
       }
     }).foreach(reads => {
 
       // write unpaired read or first of paired-end reads
-      val first = converter.convertToTab5(reads(0),
-        outputOriginalBaseQualities = writeOriginalQualities)
+      val first = converter.convertToTab5(reads(0), writeOriginalQualityScores)
 
       os.write(first.getBytes)
 
       // write second of paired-end reads, if present
       if (reads.size > 1) {
         val second = "\t" + converter.convertSecondReadToTab5(reads(1),
-          outputOriginalBaseQualities = writeOriginalQualities)
+          writeOriginalQualityScores)
 
         os.write(second.getBytes)
       }

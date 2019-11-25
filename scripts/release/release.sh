@@ -20,6 +20,10 @@ branch=$(git status -bs | awk '{ print $2 }' | awk -F'.' '{ print $1 }' | head -
 mvn com.github.heuermh.maven.plugin.changes:github-changes-maven-plugin:1.0:github-changes -DmilestoneId=${milestone}
 git commit -a -m "Modifying changelog."
 
+# update R version
+sed -i -e "s/Version: [0-9.]*/Version: $1/g" adam-r/bdgenomics.adam/DESCRIPTION
+git commit -a -m "Bumping R version to $1."
+
 commit=$(git log --pretty=format:"%H" | head -n 1)
 echo "releasing from ${commit} on branch ${branch}"
 
@@ -92,8 +96,29 @@ if [ $? != 0 ]; then
   exit 1
 fi
 
-# publish docs
-./scripts/publish-scaladoc.sh ${release}
+git checkout master
+
+# do spark 2, scala 2.12 release
+git checkout -b maint_spark2_2.12-${release} ${branch}
+
+./scripts/move_to_scala_2.12.sh
+git commit -a -m "Modifying pom.xml files for Spark 2, Scala 2.12 release."
+
+mvn --batch-mode \
+  -P distribution \
+  -Dresume=false \
+  -Dtag=adam-parent-spark2_2.12-${release} \
+  -DreleaseVersion=${release} \
+  -DdevelopmentVersion=${devel} \
+  -DbranchName=adam-spark2_2.12-${release} \
+  release:clean \
+  release:prepare \
+  release:perform
+
+if [ $? != 0 ]; then
+  echo "Releasing Spark 2, Scala 2.12 version failed."
+  exit 1
+fi
 
 if [ $branch = "master" ]; then
   # if original branch was master, update versions on original branch

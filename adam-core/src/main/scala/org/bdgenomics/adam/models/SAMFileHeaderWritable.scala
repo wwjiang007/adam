@@ -19,9 +19,12 @@ package org.bdgenomics.adam.models
 
 import htsjdk.samtools.SAMFileHeader
 import org.bdgenomics.adam.rdd.ADAMContext
-import org.bdgenomics.adam.rdd.read.AlignmentRecordRDD
+import org.bdgenomics.adam.rdd.read.AlignmentDataset
 import scala.collection.JavaConversions._
 
+/**
+ * @deprecated no longer necessary, SAMFileHeader implements Serializable
+ */
 private[adam] object SAMFileHeaderWritable {
 
   /**
@@ -59,7 +62,7 @@ private[adam] class SAMFileHeaderWritable private (hdr: SAMFileHeader) extends S
     val cmts = hdr.getComments
     cmts.flatMap(Option(_)) // don't trust samtools to return non-nulls
   }
-  private val rgs = RecordGroupDictionary.fromSAMHeader(hdr)
+  private val rgs = ReadGroupDictionary.fromSAMHeader(hdr)
 
   /**
    * Recreate header when requested to get around header not being serializable.
@@ -70,9 +73,9 @@ private[adam] class SAMFileHeaderWritable private (hdr: SAMFileHeader) extends S
     // add back optional fields
     text.foreach(h.setTextHeader)
     h.setSequenceDictionary(sd.toSAMSequenceDictionary)
-    pgl.foreach(p => h.addProgramRecord(AlignmentRecordRDD.processingStepToSam(p)))
+    pgl.foreach(p => h.addProgramRecord(AlignmentDataset.processingStepToSam(p)))
     comments.foreach(h.addComment)
-    rgs.recordGroups.foreach(rg => h.addReadGroup(rg.toSAMReadGroupRecord))
+    rgs.readGroups.foreach(rg => h.addReadGroup(rg.toSAMReadGroupRecord))
 
     h
   }
