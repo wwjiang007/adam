@@ -1,5 +1,107 @@
 # ADAM Changelog #
 
+### Version 0.32.0 ###
+
+**Closed issues:**
+
+ - Jenkins build not producing Spark 3/Scala 2.12 snapshot artifacts [\#2265](https://github.com/bigdatagenomics/adam/issues/2265)
+ - Use SCALA_VERSION instead of SCALAVER in Jenkins config [\#2264](https://github.com/bigdatagenomics/adam/issues/2264)
+ - Update Spark dependency version to 2.4.6 [\#2262](https://github.com/bigdatagenomics/adam/issues/2262)
+ - Spark Issue + Could not initialize class org.apache.spark.sql.execution.datasources.parquet.ParquetSchemaConverter [\#2261](https://github.com/bigdatagenomics/adam/issues/2261)
+ - Bump slf4j dependency to 1.7.30+ [\#2259](https://github.com/bigdatagenomics/adam/issues/2259)
+ - Load Multiple Files into the ADAM Variant schema [\#2258](https://github.com/bigdatagenomics/adam/issues/2258)
+ - Consider ParseMode to replace ValidationStringency [\#2251](https://github.com/bigdatagenomics/adam/issues/2251)
+ - NoClassDefError org.apache.spark.AccumulableParam on Spark 3.0.0 preview [\#2250](https://github.com/bigdatagenomics/adam/issues/2250)
+ - Create a build configuration for Spark 3 preview release(s) [\#2237](https://github.com/bigdatagenomics/adam/issues/2237)
+ - Drop python 2 support for pyadam [\#2221](https://github.com/bigdatagenomics/adam/issues/2221)
+ - NoSuchMethodError: shaded.parquet.org.apache.thrift.EncodingUtils.setBit(BIZ)B [\#2157](https://github.com/bigdatagenomics/adam/issues/2157)
+ - Push to CRAN [\#1851](https://github.com/bigdatagenomics/adam/issues/1851)
+
+**Merged and closed pull requests:**
+
+ - [ADAM-2262] Update Spark dependency version to 2.4.6 [\#2263](https://github.com/bigdatagenomics/adam/pull/2263) ([heuermh](https://github.com/heuermh))
+ - [ADAM-2259] Bump slf4j dependency version to 1.7.30. [\#2260](https://github.com/bigdatagenomics/adam/pull/2260) ([heuermh](https://github.com/heuermh))
+ - bump python version to 0.32.0a0 [\#2257](https://github.com/bigdatagenomics/adam/pull/2257) ([akmorrow13](https://github.com/akmorrow13))
+ - Support Apache Spark 3.x in build [\#2255](https://github.com/bigdatagenomics/adam/pull/2255) ([heuermh](https://github.com/heuermh))
+ - [ADAM-2221] Remove support for Python 2.7 [\#2244](https://github.com/bigdatagenomics/adam/pull/2244) ([akmorrow13](https://github.com/akmorrow13))
+
+
+### Version 0.31.0 ###
+
+**Closed issues:**
+
+ - Add deprecated annotations for code to be removed to support Spark 3 [\#2254](https://github.com/bigdatagenomics/adam/issues/2254)
+ - Update bdg-utils dependency version to 0.2.16 [\#2252](https://github.com/bigdatagenomics/adam/issues/2252)
+ - Bump Apache Spark dependency version to 2.4.5 [\#2248](https://github.com/bigdatagenomics/adam/issues/2248)
+ - FastqRecordConvert incompatible with single tube long fragment read headers [\#2246](https://github.com/bigdatagenomics/adam/issues/2246)
+ - Bam files with no unmapped reads fails to sort [\#2242](https://github.com/bigdatagenomics/adam/issues/2242)
+ - Unit test failure when building from release tarball [\#2241](https://github.com/bigdatagenomics/adam/issues/2241)
+ - Adam without HDFS [\#2238](https://github.com/bigdatagenomics/adam/issues/2238)
+ - Jenkins build status icon link is broken [\#2228](https://github.com/bigdatagenomics/adam/issues/2228)
+ - Write block-gzipped (bgzf) feature formats [\#2191](https://github.com/bigdatagenomics/adam/issues/2191)
+ - adam-submit is not exiting until I hit ctrl+C [\#2040](https://github.com/bigdatagenomics/adam/issues/2040)
+ - WARN  VariantContextConverter:924 - Ran into Array Out of Bounds when accessing indices 0,1,2 of genotype . [\#2024](https://github.com/bigdatagenomics/adam/issues/2024)
+ - Add doc for running on HPC with PBS [\#2002](https://github.com/bigdatagenomics/adam/issues/2002)
+ - loadFastq with paired gzipped FASTQ files fails via s3a URLs [\#1855](https://github.com/bigdatagenomics/adam/issues/1855)
+ - Where to put lift over function [\#1811](https://github.com/bigdatagenomics/adam/issues/1811)
+ - Add transform to fix chromosome prefixes to genomic RDDs and CLIs [\#1757](https://github.com/bigdatagenomics/adam/issues/1757)
+ - Support using Spark-BAM to load BAM files [\#1683](https://github.com/bigdatagenomics/adam/issues/1683)
+ - Handling Validation Stringency without repeated code [\#1572](https://github.com/bigdatagenomics/adam/issues/1572)
+ - New model PartitionMap for Array[Option[(ReferenceRegion, ReferenceRegion)]] [\#1558](https://github.com/bigdatagenomics/adam/issues/1558)
+ - Revisit double-negative command line options (e.g. -disable_fast_concat) [\#1503](https://github.com/bigdatagenomics/adam/issues/1503)
+ - Improve test coverage for SAMRecord<->AlignmentRecord [\#1284](https://github.com/bigdatagenomics/adam/issues/1284)
+ - Allow alphabets to canonicalize strings [\#797](https://github.com/bigdatagenomics/adam/issues/797)
+ - Update MdTag.getReference for CIGAR N [\#742](https://github.com/bigdatagenomics/adam/issues/742)
+ - Replace contig length maps with sequence dictionary [\#572](https://github.com/bigdatagenomics/adam/issues/572)
+ - Use tool like Scala Refactoring to enforce import guidelines [\#445](https://github.com/bigdatagenomics/adam/issues/445)
+
+**Merged and closed pull requests:**
+
+ - [ADAM-2254] Add deprecated annotations for code to be removed to support Spark 3 [\#2256](https://github.com/bigdatagenomics/adam/pull/2256) ([heuermh](https://github.com/heuermh))
+ - [ADAM-2252] Update bdg-utils dependency version to 0.2.16 [\#2253](https://github.com/bigdatagenomics/adam/pull/2253) ([heuermh](https://github.com/heuermh))
+ - [ADAM-2248] Bump Apache Spark dependency version to 2.4.5 [\#2249](https://github.com/bigdatagenomics/adam/pull/2249) ([heuermh](https://github.com/heuermh))
+ - [ADAM-2241] Commit template substitution may not be available if building from tarball [\#2243](https://github.com/bigdatagenomics/adam/pull/2243) ([heuermh](https://github.com/heuermh))
+ - [ADAM-2228] Remove Jenkins build status badge [\#2240](https://github.com/bigdatagenomics/adam/pull/2240) ([heuermh](https://github.com/heuermh))
+ - remove 2.7 support checks [\#2222](https://github.com/bigdatagenomics/adam/pull/2222) ([akmorrow13](https://github.com/akmorrow13))
+ - [ADAM-2023] Implemented Duplicate Marking algorithm in Spark SQL [\#2045](https://github.com/bigdatagenomics/adam/pull/2045) ([jonpdeaton](https://github.com/jonpdeaton))
+ - use readlink to properly source source dir [\#2036](https://github.com/bigdatagenomics/adam/pull/2036) ([mtdeguzis](https://github.com/mtdeguzis))
+ - Don't discard unmapped reads in indel realignment [\#2019](https://github.com/bigdatagenomics/adam/pull/2019) ([pauldwolfe](https://github.com/pauldwolfe))
+ - Refactor/mark buckets [\#2015](https://github.com/bigdatagenomics/adam/pull/2015) ([jondeaton](https://github.com/jondeaton))
+ - Adding a BamLoader class to have only 1 header parse for multiple ind… [\#1966](https://github.com/bigdatagenomics/adam/pull/1966) ([ffinfo](https://github.com/ffinfo))
+ - Added additional arguments to GenomicRDD.pipe() [\#1758](https://github.com/bigdatagenomics/adam/pull/1758) ([gunjanbaid](https://github.com/gunjanbaid))
+ - Migrate bdg-formats to new adam-formats module. [\#1689](https://github.com/bigdatagenomics/adam/pull/1689) ([heuermh](https://github.com/heuermh))
+ - [ADAM-1683] Pull in Spark-BAM as a secondary loading path. [\#1686](https://github.com/bigdatagenomics/adam/pull/1686) ([fnothaft](https://github.com/fnothaft))
+ - Add SortedGenomicRDD trait, refactor shuffle joins and pipe [\#1590](https://github.com/bigdatagenomics/adam/pull/1590) ([fnothaft](https://github.com/fnothaft))
+ - [ADAM-1513] Strandedness for FeatureRDDs [\#1555](https://github.com/bigdatagenomics/adam/pull/1555) ([devin-petersohn](https://github.com/devin-petersohn))
+
+
+### Version 0.30.0 ###
+
+**Closed issues:**
+
+ - Github changes plugin used in release script does not use two-factor authentication [\#2235](https://github.com/bigdatagenomics/adam/issues/2235)
+ - Update bdg-formats dependency version to 0.15.0 [\#2233](https://github.com/bigdatagenomics/adam/issues/2233)
+ - 7 tests failing on HEAD [\#2231](https://github.com/bigdatagenomics/adam/issues/2231)
+ - BUILD FAILURE - Failed to execute goal org.codehaus.mojo:exec-maven-plugin:1.5.0:java [\#2227](https://github.com/bigdatagenomics/adam/issues/2227)
+ - GenomicDataset saveAsParquet incorrectly named parameter compressCodec [\#2224](https://github.com/bigdatagenomics/adam/issues/2224)
+ - Add printAttributes methods for Reads, Sequences, Slices [\#2219](https://github.com/bigdatagenomics/adam/issues/2219)
+ - Add default Set.empty to printAttributes key method parameter [\#2218](https://github.com/bigdatagenomics/adam/issues/2218)
+ - Add Avro-friendly ctrs in rdd.variant package [\#2215](https://github.com/bigdatagenomics/adam/issues/2215)
+ - Cannot resolve adam-shade-spark2_2.11 dependency [\#2211](https://github.com/bigdatagenomics/adam/issues/2211)
+
+**Merged and closed pull requests:**
+
+ - [ADAM-2235] Update github-changes-maven-plugin dependency version to 1.1 [\#2236](https://github.com/bigdatagenomics/adam/pull/2236) ([heuermh](https://github.com/heuermh))
+ - [ADAM-2233] Update bdg-formats dependency version to 0.15.0. [\#2234](https://github.com/bigdatagenomics/adam/pull/2234) ([heuermh](https://github.com/heuermh))
+ - Update maven plugin dependency versions. [\#2230](https://github.com/bigdatagenomics/adam/pull/2230) ([heuermh](https://github.com/heuermh))
+ - [ADAM-2224] Complete refactoring of compressionCodec for named parameter. [\#2229](https://github.com/bigdatagenomics/adam/pull/2229) ([heuermh](https://github.com/heuermh))
+ - [ADAM-2224] Use compressionCodec for named parameter. [\#2226](https://github.com/bigdatagenomics/adam/pull/2226) ([heuermh](https://github.com/heuermh))
+ - [ADAM-2219] Add printAttributes methods for Reads, Sequences, Slices [\#2223](https://github.com/bigdatagenomics/adam/pull/2223) ([heuermh](https://github.com/heuermh))
+ - [ADAM-2218] Add default Set.empty to printAttributes key method parameter. [\#2220](https://github.com/bigdatagenomics/adam/pull/2220) ([heuermh](https://github.com/heuermh))
+ - Rename AlignmentRecord to Alignment. [\#2217](https://github.com/bigdatagenomics/adam/pull/2217) ([heuermh](https://github.com/heuermh))
+ - [ADAM-2215] Add Avro-friendly ctrs to rdd.variant package [\#2216](https://github.com/bigdatagenomics/adam/pull/2216) ([heuermh](https://github.com/heuermh))
+
+
 ### Version 0.29.0 ###
 
 **Closed issues:**

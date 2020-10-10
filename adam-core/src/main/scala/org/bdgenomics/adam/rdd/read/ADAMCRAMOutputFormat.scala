@@ -19,8 +19,6 @@ package org.bdgenomics.adam.rdd.read
 
 import org.apache.hadoop.fs.Path
 import org.apache.hadoop.mapreduce.{ OutputFormat, RecordWriter, TaskAttemptContext }
-import org.apache.spark.rdd.InstrumentedOutputFormat
-import org.bdgenomics.adam.instrumentation.Timers
 import org.seqdoop.hadoop_bam.{
   KeyIgnoringCRAMOutputFormat,
   KeyIgnoringCRAMRecordWriter,
@@ -55,16 +53,6 @@ class ADAMCRAMOutputFormat[K]
 }
 
 /**
- * Wrapper that adds instrumentation to the CRAM output format.
- *
- * @tparam K The key type. Keys are not written.
- */
-class InstrumentedADAMCRAMOutputFormat[K] extends InstrumentedOutputFormat[K, org.seqdoop.hadoop_bam.SAMRecordWritable] {
-  override def timerName(): String = Timers.WriteCRAMRecord.timerName
-  override def outputFormatClass(): Class[_ <: OutputFormat[K, SAMRecordWritable]] = classOf[ADAMCRAMOutputFormat[K]]
-}
-
-/**
  * Wrapper for Hadoop-BAM to work around requirement for no-args constructor.
  *
  * @tparam K The key type. Keys are not written.
@@ -89,14 +77,4 @@ class ADAMCRAMOutputFormatHeaderLess[K]
       false,
       context)
   }
-}
-
-/**
- * Wrapper that adds instrumentation to the CRAM output format.
- *
- * @tparam K The key type. Keys are not written.
- */
-class InstrumentedADAMCRAMOutputFormatHeaderLess[K] extends InstrumentedOutputFormat[K, org.seqdoop.hadoop_bam.SAMRecordWritable] {
-  override def timerName(): String = Timers.WriteCRAMRecord.timerName
-  override def outputFormatClass(): Class[_ <: OutputFormat[K, SAMRecordWritable]] = classOf[ADAMCRAMOutputFormatHeaderLess[K]]
 }

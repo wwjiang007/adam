@@ -15,28 +15,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.bdgenomics.adam.cli
+package org.bdgenomics.adam.util
 
-import org.scalatest.FunSuite
-
-class AboutSuite extends FunSuite {
-  val about = new About()
-
-  test("template variables have been replaced") {
-    assert(about.artifactId !== "${project.artifactId}")
-    assert(about.buildTimestamp !== "${maven.build.timestamp}")
-    assert(about.hadoopVersion !== "${hadoop.version}")
-    assert(about.scalaVersion !== "${scala.version}")
-    assert(about.sparkVersion !== "${spark.version}")
-    assert(about.version !== "${version}")
-  }
-
-  test("templated values are not empty") {
-    assert(about.artifactId.nonEmpty)
-    assert(about.buildTimestamp.nonEmpty)
-    assert(about.hadoopVersion.nonEmpty)
-    assert(about.scalaVersion.nonEmpty)
-    assert(about.sparkVersion.nonEmpty)
-    assert(about.version.nonEmpty)
-  }
+private[util] object TextAlignment extends Enumeration {
+  type TextAlignment = Value
+  val Left, Right, Center = Value
 }

@@ -19,8 +19,6 @@ package org.bdgenomics.adam.rdd.read
 
 import org.apache.hadoop.fs.Path
 import org.apache.hadoop.mapreduce.{ OutputFormat, RecordWriter, TaskAttemptContext }
-import org.apache.spark.rdd.InstrumentedOutputFormat
-import org.bdgenomics.adam.instrumentation.Timers
 import org.seqdoop.hadoop_bam.{
   KeyIgnoringBAMOutputFormat,
   KeyIgnoringBAMRecordWriter,
@@ -55,16 +53,6 @@ class ADAMBAMOutputFormat[K]
 }
 
 /**
- * Wrapper that adds instrumentation to the BAM output format.
- *
- * @tparam K The key type. Keys are not written.
- */
-class InstrumentedADAMBAMOutputFormat[K] extends InstrumentedOutputFormat[K, org.seqdoop.hadoop_bam.SAMRecordWritable] {
-  override def timerName(): String = Timers.WriteBAMRecord.timerName
-  override def outputFormatClass(): Class[_ <: OutputFormat[K, SAMRecordWritable]] = classOf[ADAMBAMOutputFormat[K]]
-}
-
-/**
  * Wrapper for Hadoop-BAM to work around requirement for no-args constructor.
  *
  * @tparam K The key type. Keys are not written.
@@ -89,14 +77,4 @@ class ADAMBAMOutputFormatHeaderLess[K]
       false,
       context)
   }
-}
-
-/**
- * Wrapper that adds instrumentation to the SAM output format.
- *
- * @tparam K The key type. Keys are not written.
- */
-class InstrumentedADAMBAMOutputFormatHeaderLess[K] extends InstrumentedOutputFormat[K, org.seqdoop.hadoop_bam.SAMRecordWritable] {
-  override def timerName(): String = Timers.WriteBAMRecord.timerName
-  override def outputFormatClass(): Class[_ <: OutputFormat[K, SAMRecordWritable]] = classOf[ADAMBAMOutputFormatHeaderLess[K]]
 }
