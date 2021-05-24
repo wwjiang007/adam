@@ -13,8 +13,8 @@ use this, import the implicit, and call an ``ADAMContext`` method:
     import org.apache.spark.SparkContext
 
     // the ._ at the end imports the implicit from the ADAMContext companion object
-    import org.bdgenomics.adam.rdd.ADAMContext._
-    import org.bdgenomics.adam.rdd.read.AlignmentDataset
+    import org.bdgenomics.adam.ds.ADAMContext._
+    import org.bdgenomics.adam.ds.read.AlignmentDataset
 
     def loadReads(filePath: String, sc: SparkContext): AlignmentDataset = {
       sc.loadAlignments(filePath)
@@ -26,8 +26,8 @@ In Java, instantiate a JavaADAMContext, which wraps an ADAMContext:
 
     import org.apache.spark.apis.java.JavaSparkContext;
     import org.bdgenomics.adam.apis.java.JavaADAMContext;
-    import org.bdgenomics.adam.rdd.ADAMContext;
-    import org.bdgenomics.adam.rdd.read.AlignmentDataset;
+    import org.bdgenomics.adam.ds.ADAMContext;
+    import org.bdgenomics.adam.ds.read.AlignmentDataset;
 
     class LoadReads {
 
@@ -116,7 +116,8 @@ With an ``ADAMContext``, you can load:
 
    -  From Parquet using ``loadParquetCoverage`` (Scala only)
    -  From Parquet or any of the feature file formats using ``loadCoverage`` (Scala only)
-   -  Contig sequence as a broadcastable ``ReferenceFile`` using ``loadReferenceFile``, which supports
+
+-  Reference sequences as a broadcastable ``ReferenceFile`` using ``loadReferenceFile``, which supports
       2bit files, FASTA, and Parquet (Scala only)
 
 The methods labeled "Scala only" may be usable from Java, but may not be

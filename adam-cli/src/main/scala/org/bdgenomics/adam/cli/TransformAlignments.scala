@@ -32,9 +32,9 @@ import org.bdgenomics.adam.cli.FileSystemUtils._
 import org.bdgenomics.adam.io.FastqRecordReader
 import org.bdgenomics.adam.models.{ ReferenceRegion, SnpTable }
 import org.bdgenomics.adam.projections.{ AlignmentField, Filter }
-import org.bdgenomics.adam.rdd.ADAMContext._
-import org.bdgenomics.adam.rdd.ADAMSaveAnyArgs
-import org.bdgenomics.adam.rdd.read.{ AlignmentDataset, QualityScoreBin }
+import org.bdgenomics.adam.ds.ADAMContext._
+import org.bdgenomics.adam.ds.ADAMSaveAnyArgs
+import org.bdgenomics.adam.ds.read.{ AlignmentDataset, QualityScoreBin }
 import org.bdgenomics.adam.rich.RichVariant
 import org.bdgenomics.formats.avro.{ Alignment, ProcessingStep }
 import org.bdgenomics.utils.cli._
@@ -51,7 +51,7 @@ object TransformAlignments extends BDGCommandCompanion {
   }
 }
 
-class TransformAlignmentsArgs extends Args4jBase with ADAMSaveAnyArgs with ParquetArgs {
+class TransformAlignmentsArgs extends Args4jBase with ADAMSaveAnyArgs with ParquetArgs with CramArgs {
 
   @Argument(required = true, metaVar = "INPUT", usage = "The ADAM, BAM or SAM file to apply the transforms to", index = 0)
   var inputPath: String = null
@@ -520,6 +520,8 @@ class TransformAlignments(protected val args: TransformAlignmentsArgs) extends B
       )
     }
 
+    args.configureCramFormat(sc)
+
     val loadedDs: AlignmentDataset =
       if (args.forceLoadBam) {
         if (args.regionPredicate != null) {
@@ -593,7 +595,7 @@ class TransformAlignments(protected val args: TransformAlignmentsArgs) extends B
     }
 
     val rdd = aDs.rdd
-    val sd = aDs.sequences
+    val sd = aDs.references
     val rgd = aDs.readGroups
     val pgs = aDs.processingSteps
 
@@ -617,7 +619,7 @@ class TransformAlignments(protected val args: TransformAlignmentsArgs) extends B
 
     // if we have a second rdd that we are merging in, process the merger here
     val (mergedRdd, mergedSd, mergedRgd, mergedPgs) = concatOpt.fold((rdd, sd, rgd, pgs))(t => {
-      (rdd ++ t.rdd, sd ++ t.sequences, rgd ++ t.readGroups, pgs ++ t.processingSteps)
+      (rdd ++ t.rdd, sd ++ t.references, rgd ++ t.readGroups, pgs ++ t.processingSteps)
     })
 
     // make a new aligned read rdd, that merges the two RDDs together
@@ -635,7 +637,7 @@ class TransformAlignments(protected val args: TransformAlignmentsArgs) extends B
     }
 
     if (args.partitionByStartPos) {
-      if (outputDs.sequences.isEmpty) {
+      if (outputDs.references.isEmpty) {
         warn("This dataset is not aligned and therefore will not benefit from being saved as a partitioned dataset")
       }
       outputDs.saveAsPartitionedParquet(args.outputPath, partitionSize = args.partitionedBinSize)

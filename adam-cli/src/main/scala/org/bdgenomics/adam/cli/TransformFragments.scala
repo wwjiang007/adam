@@ -21,10 +21,10 @@ import grizzled.slf4j.Logging
 import org.apache.spark.SparkContext
 import org.bdgenomics.adam.cli.FileSystemUtils._
 import org.bdgenomics.adam.io.FastqRecordReader
-import org.bdgenomics.adam.rdd.ADAMContext._
-import org.bdgenomics.adam.rdd.ADAMSaveAnyArgs
-import org.bdgenomics.adam.rdd.read.QualityScoreBin
-import org.bdgenomics.adam.rdd.fragment.FragmentDataset
+import org.bdgenomics.adam.ds.ADAMContext._
+import org.bdgenomics.adam.ds.ADAMSaveAnyArgs
+import org.bdgenomics.adam.ds.read.QualityScoreBin
+import org.bdgenomics.adam.ds.fragment.FragmentDataset
 import org.bdgenomics.utils.cli._
 import org.kohsuke.args4j.{ Argument, Option => Args4jOption }
 
@@ -37,15 +37,18 @@ object TransformFragments extends BDGCommandCompanion {
   }
 }
 
-class TransformFragmentsArgs extends Args4jBase with ADAMSaveAnyArgs with ParquetArgs {
-  @Argument(required = true, metaVar = "INPUT", usage = "The Fragment file to apply the transforms to", index = 0)
+class TransformFragmentsArgs extends Args4jBase with ADAMSaveAnyArgs with ParquetArgs with CramArgs {
+  @Argument(required = true, metaVar = "INPUT", usage = "The fragment file to convert (e.g. .fq, .ifq, .fastq, .ifastq). If extension is not detected, Parquet is assumed.", index = 0)
   var inputPath: String = null
 
-  @Argument(required = true, metaVar = "OUTPUT", usage = "Location to write the transformed fragments", index = 1)
+  @Argument(required = true, metaVar = "OUTPUT", usage = "Location to write ADAM fragment data. If extension is not detected, Parquet is assumed.", index = 1)
   var outputPath: String = null
 
   @Args4jOption(required = false, name = "-load_as_alignments", usage = "Treats the input data as alignments")
   var loadAsAlignments: Boolean = false
+
+  @Args4jOption(required = false, name = "-paired_fastq", usage = "When converting two (paired) FASTQ files, pass the path to the second file here.")
+  var pairedFastqFile: String = null
 
   @Args4jOption(required = false, name = "-save_as_alignments", usage = "Saves the output data as alignments")
   var saveAsAlignments: Boolean = false
@@ -128,8 +131,11 @@ class TransformFragments(protected val args: TransformFragmentsArgs) extends BDG
       FastqRecordReader.setMaxReadLength(sc.hadoopConfiguration, args.maxReadLength)
     }
 
-    val rdd = if (args.loadAsAlignments) {
-      sc.loadAlignments(args.inputPath)
+    args.configureCramFormat(sc)
+
+    val optPairedFastqFile = Option(args.pairedFastqFile)
+    val rdd = if (args.loadAsAlignments || optPairedFastqFile.isDefined) {
+      sc.loadAlignments(args.inputPath, optPathName2 = optPairedFastqFile)
         .toFragments
     } else {
       sc.loadFragments(args.inputPath)

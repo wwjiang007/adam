@@ -22,8 +22,8 @@ import org.apache.spark.rdd.RDD
 import org.bdgenomics.adam.cli.FileSystemUtils._
 import org.bdgenomics.adam.projections.AlignmentField._
 import org.bdgenomics.adam.projections.Projection
-import org.bdgenomics.adam.rdd.ADAMContext._
-import org.bdgenomics.adam.rdd.read.AlignmentDataset
+import org.bdgenomics.adam.ds.ADAMContext._
+import org.bdgenomics.adam.ds.read.AlignmentDataset
 import org.bdgenomics.formats.avro.Alignment
 import org.bdgenomics.utils.cli._
 import org.kohsuke.args4j.{ Argument, Option => Args4jOption }
@@ -45,7 +45,7 @@ object Coverage extends BDGCommandCompanion {
   }
 }
 
-class CoverageArgs extends Args4jBase with ParquetArgs {
+class CoverageArgs extends Args4jBase with ParquetArgs with CramArgs {
 
   @Argument(required = true, metaVar = "INPUT", usage = "The alignments file to use to calculate depths", index = 0)
   var inputPath: String = null
@@ -87,6 +87,8 @@ class Coverage(protected val args: CoverageArgs) extends BDGSparkCommand[Coverag
     // If saving strand specific coverage, require that only one direction is specified
     require(!(args.onlyNegativeStrands && args.onlyPositiveStrands),
       "Cannot compute coverage for both negative and positive strands separately")
+
+    args.configureCramFormat(sc)
 
     // load alignments
     val alignmentsRdd: AlignmentDataset = sc.loadAlignments(args.inputPath)

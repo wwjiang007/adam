@@ -1,5 +1,81 @@
 # ADAM Changelog #
 
+### Version 0.35.0 ###
+
+**Closed issues:**
+
+ - Migrate CI off Jenkins [\#2307](https://github.com/bigdatagenomics/adam/issues/2307)
+ - Provide access to header to model conversions [\#2304](https://github.com/bigdatagenomics/adam/issues/2304)
+
+**Merged and closed pull requests:**
+
+ - [ADAM-2307] Remove Jenkins and Travis CI configuration [\#2312](https://github.com/bigdatagenomics/adam/pull/2312) ([heuermh](https://github.com/heuermh))
+ - Add initial GitHub Actions CI configuration [\#2311](https://github.com/bigdatagenomics/adam/pull/2311) ([heuermh](https://github.com/heuermh))
+ - Add paired fastq argument to transformFragments [\#2310](https://github.com/bigdatagenomics/adam/pull/2310) ([heuermh](https://github.com/heuermh))
+ - Update dependency and maven plugin versions [\#2309](https://github.com/bigdatagenomics/adam/pull/2309) ([heuermh](https://github.com/heuermh))
+ - Bump commons-io from 2.6 to 2.7 [\#2308](https://github.com/bigdatagenomics/adam/pull/2308) ([dependabot[bot]](https://github.com/apps/dependabot))
+ - Bump guava from 27.0-jre to 29.0-jre [\#2306](https://github.com/bigdatagenomics/adam/pull/2306) ([dependabot[bot]](https://github.com/apps/dependabot))
+ - [ADAM-2304] Provide access to header to model conversions [\#2305](https://github.com/bigdatagenomics/adam/pull/2305) ([heuermh](https://github.com/heuermh))
+
+
+### Version 0.34.0 ###
+
+**Closed issues:**
+
+ - Update Spark dependency version to 3.0.2 [\#2300](https://github.com/bigdatagenomics/adam/issues/2300)
+ - printInfoFields does not display value of Type=Flag VCF INFO fields [\#2299](https://github.com/bigdatagenomics/adam/issues/2299)
+ - Add CRAM reference argument to CLI for loading alignments and fragments  [\#2293](https://github.com/bigdatagenomics/adam/issues/2293)
+ - Duplicate version 0.33.0 release notes in changelog [\#2290](https://github.com/bigdatagenomics/adam/issues/2290)
+ - adam-submit: Not able to transform fasta file to adam format. [\#2288](https://github.com/bigdatagenomics/adam/issues/2288)
+ - Bump Scala 2.12 dependency version to 2.12.10 [\#2287](https://github.com/bigdatagenomics/adam/issues/2287)
+ - Default build to Hadoop 3.x [\#2285](https://github.com/bigdatagenomics/adam/issues/2285)
+ - Remove Scala 2.11.x from build and release matrix [\#2284](https://github.com/bigdatagenomics/adam/issues/2284)
+ - Remove Spark 2.x from build and release matrix [\#2283](https://github.com/bigdatagenomics/adam/issues/2283)
+ - All of my samples fail due to adam erroneously thinking there are different numbers of reads in r1 and r2. [\#2247](https://github.com/bigdatagenomics/adam/issues/2247)
+ - Rename sequences SequenceDictionary field to references [\#2171](https://github.com/bigdatagenomics/adam/issues/2171)
+ - Replace jvmRdd with jvmDataset in adam-python [\#2134](https://github.com/bigdatagenomics/adam/issues/2134)
+ - Refactor org.bdgenomics.adam.rdd package to org.bdgenomics.adam.ds [\#2112](https://github.com/bigdatagenomics/adam/issues/2112)
+ - FastaConverter causes mango to crash due to missing contigNames [\#2038](https://github.com/bigdatagenomics/adam/issues/2038)
+ - Verify LICENSE and NOTICE per upstream changes [\#2005](https://github.com/bigdatagenomics/adam/issues/2005)
+ - Add convenience method to filter by contig [\#1877](https://github.com/bigdatagenomics/adam/issues/1877)
+ - Confirm all I/O resources created by ADAM are closed properly [\#1719](https://github.com/bigdatagenomics/adam/issues/1719)
+ - Remove Smith-Waterman consensus mode [\#1414](https://github.com/bigdatagenomics/adam/issues/1414)
+
+**Merged and closed pull requests:**
+
+ - [ADAM-2300] Update Spark dependency version to 3.0.2 [\#2301](https://github.com/bigdatagenomics/adam/pull/2301) ([heuermh](https://github.com/heuermh))
+ - [ADAM-2171] Rename sequences SequenceDictionary field to references [\#2298](https://github.com/bigdatagenomics/adam/pull/2298) ([heuermh](https://github.com/heuermh))
+ - Bump adam-python version to 0.34.0a0 [\#2297](https://github.com/bigdatagenomics/adam/pull/2297) ([heuermh](https://github.com/heuermh))
+ - [ADAM-2112] Refactor org.bdgenomics.adam.rdd package to org.bdgenomics.adam.ds [\#2296](https://github.com/bigdatagenomics/adam/pull/2296) ([heuermh](https://github.com/heuermh))
+ - [ADAM-2293] Add CRAM reference argument to CLI for loading alignments and fragments [\#2294](https://github.com/bigdatagenomics/adam/pull/2294) ([heuermh](https://github.com/heuermh))
+ - [ADAM-1877] Add convenience method to filter to reference name [\#2292](https://github.com/bigdatagenomics/adam/pull/2292) ([heuermh](https://github.com/heuermh))
+ - [ADAM-2290] Remove duplicate version 0.33.0 release notes in changelog [\#2291](https://github.com/bigdatagenomics/adam/pull/2291) ([heuermh](https://github.com/heuermh))
+ - Update build and release matrix [\#2286](https://github.com/bigdatagenomics/adam/pull/2286) ([heuermh](https://github.com/heuermh))
+ - [ADAM-2112] Refactor org.bdgenomics.adam.rdd package to org.bdgenomics.adam.ds [\#2137](https://github.com/bigdatagenomics/adam/pull/2137) ([heuermh](https://github.com/heuermh))
+
+
+
+### Version 0.33.0 ###
+
+**Closed issues:**
+
+ - Update Spark dependency to version 3.0.1 [\#2273](https://github.com/bigdatagenomics/adam/issues/2273)
+ - Add cite DOI link to command line --version output [\#2270](https://github.com/bigdatagenomics/adam/issues/2270)
+ - Support Hadoop 3.2.x in build [\#2267](https://github.com/bigdatagenomics/adam/issues/2267)
+ - Default build to Spark 3/Scala 2.12 [\#2266](https://github.com/bigdatagenomics/adam/issues/2266)
+
+**Merged and closed pull requests:**
+
+ - Performance improvements to SAM reading and processing [\#2280](https://github.com/bigdatagenomics/adam/pull/2280) ([benraha](https://github.com/benraha))
+ - [ADAM-2150] Use interval start as position for Ensembl VEP ANN attributes [\#2278](https://github.com/bigdatagenomics/adam/pull/2278) ([heuermh](https://github.com/heuermh))
+ - Update Spark 2.x dependency version to 2.4.7 [\#2277](https://github.com/bigdatagenomics/adam/pull/2277) ([heuermh](https://github.com/heuermh))
+ - Use explicit provided scope for scala-library dependency [\#2276](https://github.com/bigdatagenomics/adam/pull/2276) ([heuermh](https://github.com/heuermh))
+ - Update Spark dependency version to 3.0.1 [\#2274](https://github.com/bigdatagenomics/adam/pull/2274) ([heuermh](https://github.com/heuermh))
+ - [ADAM-2270] Add cite DOI link to command line --version output [\#2271](https://github.com/bigdatagenomics/adam/pull/2271) ([heuermh](https://github.com/heuermh))
+ - Default doc links to Spark 3/Scala 2.12 [\#2269](https://github.com/bigdatagenomics/adam/pull/2269) ([heuermh](https://github.com/heuermh))
+ - [ADAM-2266] Default build to Spark 3/Scala 2.12 [\#2268](https://github.com/bigdatagenomics/adam/pull/2268) ([heuermh](https://github.com/heuermh))
+
+
 ### Version 0.32.0 ###
 
 **Closed issues:**

@@ -19,7 +19,7 @@
 
 from bdgenomics.adam.adamContext import ADAMContext
 from bdgenomics.adam.models import ReferenceRegion
-from bdgenomics.adam.rdd import AlignmentDataset, CoverageDataset
+from bdgenomics.adam.ds import AlignmentDataset, CoverageDataset
 from bdgenomics.adam.test import SparkTestCase
 
 from pyspark.sql.types import DoubleType
@@ -83,8 +83,8 @@ class AlignmentDatasetTest(SparkTestCase):
 
         bamReads = ac.loadAlignments(tmpPath)
 
-        self.assertEqual(bamReads._jvmRdd.jrdd().count(),
-                          reads._jvmRdd.jrdd().count())
+        self.assertEqual(bamReads._jvmDataset.jrdd().count(),
+                          reads._jvmDataset.jrdd().count())
 
 
     def test_count_kmers(self):
@@ -106,8 +106,8 @@ class AlignmentDatasetTest(SparkTestCase):
         reads = ac.loadAlignments(reads12Path)
 
         pipedRdd = reads.pipe(["tee", "/dev/null"],
-                              "org.bdgenomics.adam.rdd.read.SAMInFormatter",
-                              "org.bdgenomics.adam.rdd.read.AnySAMOutFormatter",
+                              "org.bdgenomics.adam.ds.read.SAMInFormatter",
+                              "org.bdgenomics.adam.ds.read.AnySAMOutFormatter",
                               "org.bdgenomics.adam.api.java.AlignmentsToAlignmentsConverter")
 
         self.assertEqual(reads.toDF().count(), pipedRdd.toDF().count())
